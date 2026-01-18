@@ -6,7 +6,7 @@ import re
 # --- 1. 页面设置 ---
 st.set_page_config(page_title="竞赛数学闪卡", page_icon="🧮", layout="wide")
 
-# 强制注入 MathJax 3.0。注意：我们不再在 Python 里做复杂的正则，交给 MathJax 自己去识别 $
+# 强制注入 MathJax 3.0。保持原有配置不动，确保 LaTeX 渲染优秀
 st.markdown("""
     <script>
     window.MathJax = {
@@ -34,12 +34,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 def render_mixed_content(text):
-    """
-    最简约的预处理：只处理 Python 读取 CSV 时可能产生的双斜杠污染
-    不再手动翻倍反斜杠，避免干扰 MathJax
-    """
     if not isinstance(text, str): return str(text)
-    # 还原被错误转义的斜杠
     text = text.replace('\\\\', '\\')
     return text
 
@@ -50,7 +45,6 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 @st.cache_data
 def load_data(name):
     p = os.path.join(DATA_DIR, name)
-    # 重点：escapechar=None 确保 Pandas 不去动你的反斜杠
     try: return pd.read_csv(p, encoding='utf-8', keep_default_na=False, escapechar=None)
     except: return pd.read_csv(p, encoding='gbk', keep_default_na=False, escapechar=None)
 
@@ -69,17 +63,34 @@ if 'idx' not in st.session_state or st.session_state.get('last_file') != selecte
     st.session_state.last_file = selected_file
     st.session_state.scores = {}
     st.session_state.is_finished = False
+    st.session_state.confirm_end = False # 新增：用于结束前的二次确认状态
 
 # --- 4. 报告页面 ---
 if st.session_state.is_finished:
     st.title("📊 学习成果报告")
     num_scored = len(st.session_state.scores)
     st.subheader(f"完成情况：{num_scored} / {total_questions}")
+    
     if num_scored > 0:
         avg = sum(st.session_state.scores.values()) / num_scored
         st.metric("平均掌握度", f"{avg:.1f}")
+        
+        # 针对平均分的反馈建议
+        if avg >= 4.0:
+            st.success(f"🌟 非常出色！你的平均掌握度达到了 {avg:.1f}。看来你已经基本吃透了本章内容，请继续保持这种势头！")
+        elif avg >= 3.0:
+            st.info(f"👍 表现不错。你的平均掌握度为 {avg:.1f}。大部分知识点已掌握，建议针对“模糊”的题目再进行专项巩固。")
+        else:
+            st.warning(f"📖 掌握度较低 ({avg:.1f})。建议回到课件重新复习基础知识，并尝试重新推导解析中的公式。")
+    else:
+        st.write("未进行任何评分，暂无报告数据。")
+
     if st.button("🔄 重新开始本章"):
-        st.session_state.idx = 0; st.session_state.scores = {}; st.session_state.is_finished = False; st.rerun()
+        st.session_state.idx = 0
+        st.session_state.scores = {}
+        st.session_state.is_finished = False
+        st.session_state.confirm_end = False
+        st.rerun()
     st.stop()
 
 # --- 5. 侧边栏 ---
@@ -98,12 +109,9 @@ for r in range(rows):
 # --- 6. 主界面 ---
 st.title("🧮 高老师的国际数学竞赛闪卡练习")
 row = df.iloc[st.session_state.idx]
-
 st.info(f"📍 当前题目：第 {st.session_state.idx + 1} 题")
 
-# 重点：直接渲染，不再包装在自定义 HTML 里
 st.write(render_mixed_content(row['Front']))
-
 st.divider()
 
 # 打分按钮
@@ -114,20 +122,20 @@ for i in range(5):
         st.session_state.scores[st.session_state.idx] = i + 1
         if st.session_state.idx < total_questions - 1:
             st.session_state.idx += 1; st.session_state.show = False
-        else: st.session_state.is_finished = True
+        else:
+            # 最后一题打完分后，自动进入完成状态
+            st.session_state.is_finished = True 
         st.rerun()
 
-# --- 解析显示逻辑 ---
+# 解析显示
 if not st.session_state.show:
     if st.button("🔍 查看解析", use_container_width=True):
-        st.session_state.show = True
-        st.rerun()
+        st.session_state.show = True; st.rerun()
 else:
     st.success("### 💡 解析参考：")
-    # 针对长文本解析，st.write 往往比 st.markdown 自动处理 LaTeX 更稳
     st.write(render_mixed_content(row['Back']))
 
-# --- 7. 导航 ---
+# --- 7. 导航与确认逻辑 ---
 st.divider()
 n1, n2, n3 = st.columns([1, 1, 2])
 with n1:
@@ -138,4 +146,26 @@ with n2:
         if st.session_state.idx < total_questions - 1: st.session_state.idx += 1; st.session_state.show = False; st.rerun()
 with n3:
     if st.button("🏁 结束自测", use_container_width=True, type="primary"):
-        st.session_state.is_finished = True; st.rerun()
+        # 点击后进入二次确认阶段
+        st.session_state.confirm_end = True
+        st.rerun()
+
+# --- 二次确认弹窗界面 ---
+if st.session_state.confirm_end:
+    unanswered = [i + 1 for i in range(total_questions) if i not in st.session_state.scores]
+    
+    st.markdown("---")
+    if unanswered:
+        st.warning(f"⚠️ **还有 {len(unanswered)} 道题未进行掌握度评分！**")
+        st.write(f"未评分题号：{', '.join(map(str, unanswered))}")
+    else:
+        st.info("🎉 所有题目已完成评分！")
+
+    c1, c2 = st.columns(2)
+    if c1.button("✅ 确认结束并看报告", use_container_width=True):
+        st.session_state.is_finished = True
+        st.session_state.confirm_end = False
+        st.rerun()
+    if c2.button("🔙 返回继续练习", use_container_width=True):
+        st.session_state.confirm_end = False
+        st.rerun()
