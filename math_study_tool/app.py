@@ -6,7 +6,7 @@ import re
 # --- 1. 页面设置 ---
 st.set_page_config(page_title="竞赛数学闪卡", page_icon="🧮")
 
-# 强制注入 MathJax 和 强制横排按钮及颜色的 CSS
+# 强制注入渲染脚本和“强力着色”CSS
 st.markdown("""
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
@@ -23,35 +23,44 @@ st.markdown("""
         min-width: 0px !important;
     }
     
-    /* 2. 统一按钮基础样式，解决透明问题 */
+    /* 2. 深度强制着色逻辑：直接针对按钮及其内部所有标签 */
     .stButton button {
         width: 100% !important;
-        height: 60px !important;
-        border-radius: 8px !important;
+        height: 65px !important;
         border: none !important;
         color: white !important;
         font-weight: bold !important;
-        white-space: pre-wrap !important;
-        line-height: 1.2 !important;
-        opacity: 1 !important; /* 确保不透明 */
+        opacity: 1 !important;
     }
 
-    /* 3. 分级颜色定义 (从红色渐变到绿色) */
+    /* 使用 nth-child 精准定位 5 个列中的按钮并强制涂色 */
     /* 1-不懂: 红色 */
-    div[data-testid="column"]:nth-of-type(1) button { background-color: #FF4B4B !important; }
+    div[data-testid="column"]:nth-of-type(1) div[data-testid="stButton"] button {
+        background-color: #FF4B4B !important;
+    }
     /* 2-模糊: 橙色 */
-    div[data-testid="column"]:nth-of-type(2) button { background-color: #FFA500 !important; }
-    /* 3-懂了: 黄色 (黑字更清晰) */
-    div[data-testid="column"]:nth-of-type(3) button { background-color: #FFD700 !important; color: #31333F !important; }
-    /* 4-熟练: 浅绿 */
-    div[data-testid="column"]:nth-of-type(4) button { background-color: #90EE90 !important; color: #31333F !important; }
+    div[data-testid="column"]:nth-of-type(2) div[data-testid="stButton"] button {
+        background-color: #FFA500 !important;
+    }
+    /* 3-懂了: 黄色 (黑字) */
+    div[data-testid="column"]:nth-of-type(3) div[data-testid="stButton"] button {
+        background-color: #FFD700 !important;
+        color: #31333F !important;
+    }
+    /* 4-熟练: 浅绿 (黑字) */
+    div[data-testid="column"]:nth-of-type(4) div[data-testid="stButton"] button {
+        background-color: #90EE90 !important;
+        color: #31333F !important;
+    }
     /* 5-秒杀: 深绿 */
-    div[data-testid="column"]:nth-of-type(5) button { background-color: #2E8B57 !important; }
+    div[data-testid="column"]:nth-of-type(5) div[data-testid="stButton"] button {
+        background-color: #2E8B57 !important;
+    }
 
-    /* 修复按钮悬停时变透明的问题 */
-    .stButton button:hover {
-        opacity: 0.8 !important;
-        color: inherit !important;
+    /* 兼容移动端：确保点击时颜色不丢失 */
+    .stButton button:active, .stButton button:focus {
+        color: white !important;
+        background-color: inherit !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -68,7 +77,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
 if not os.path.exists(DATA_DIR):
-    st.error("请确保 GitHub 仓库中有 data 文件夹")
+    st.error("未找到 data 文件夹")
     st.stop()
 
 csv_files = [f for f in os.listdir(DATA_DIR) if f.lower().endswith('.csv')]
@@ -96,16 +105,13 @@ if st.session_state.is_finished:
     st.title("📊 学习成果报告")
     if st.session_state.scores:
         avg_score = sum(st.session_state.scores.values()) / len(st.session_state.scores)
-        count = len(st.session_state.scores)
     else:
-        avg_score, count = 0, 0
-
+        avg_score = 0
     st.metric("平均掌握度", f"{avg_score:.1f}")
-    if avg_score >= 4.0: st.success(f"🌟 非常出色！掌握度 {avg_score:.1f}。")
-    elif avg_score >= 3.0: st.info(f"👍 表现不错。掌握度 {avg_score:.1f}。")
-    else: st.warning(f"📖 掌握度 {avg_score:.1f}。建议重新复习。")
-
-    if st.button("🔄 重新开始本章"):
+    if avg_score >= 4.0: st.success("🌟 表现优异！")
+    elif avg_score >= 3.0: st.info("👍 表现稳健。")
+    else: st.warning("📖 建议多看解析复习。")
+    if st.button("🔄 重新开始"):
         st.session_state.idx = 0
         st.session_state.show = False
         st.session_state.scores = {}
@@ -113,7 +119,7 @@ if st.session_state.is_finished:
         st.rerun()
     st.stop()
 
-# --- 5. 主界面内容 ---
+# --- 5. 主界面 ---
 st.title("🧮 数学竞赛练习")
 row = df.iloc[st.session_state.idx]
 st.write(f"### 第 {st.session_state.idx + 1} 题：")
@@ -121,12 +127,13 @@ st.write(render_mixed_content(row['Front']))
 
 st.divider()
 
-# --- 掌握程度按钮 (已应用颜色分级) ---
+# --- 5个颜色按钮 ---
 st.write("🎯 **掌握程度自评：**")
 cols = st.columns(5)
 labels = ["不懂", "模糊", "懂了", "熟练", "秒杀"]
 for i in range(5):
-    if cols[i].button(f"{i+1}\n{labels[i]}", key=f"eval_{i}"):
+    # 增加 \n 强制换行，让数字在上面，字在下面
+    if cols[i].button(f"{i+1}\n{labels[i]}", key=f"e_{i}"):
         st.session_state.scores[st.session_state.idx] = i + 1
         if st.session_state.idx < total_questions - 1:
             st.session_state.idx += 1
@@ -158,10 +165,8 @@ with c2:
         if st.session_state.idx < total_questions - 1:
             st.session_state.idx += 1
             st.session_state.show = False
-        else:
-            st.session_state.is_finished = True
-        st.rerun()
+            st.rerun()
 with c3:
-    if st.button("🏁 结束并看报告", use_container_width=True, type="primary"):
+    if st.button("🏁 结束自测", use_container_width=True, type="primary"):
         st.session_state.is_finished = True
         st.rerun()
