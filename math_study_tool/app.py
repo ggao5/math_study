@@ -6,43 +6,53 @@ import re
 # --- 1. 页面设置 ---
 st.set_page_config(page_title="竞赛数学闪卡", page_icon="🧮")
 
-# 强制注入 MathJax 和 强制横排按钮的 CSS
+# 强制注入 MathJax 和 强制横排按钮及颜色的 CSS
 st.markdown("""
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     
     <style>
-    /* 核心修复：强迫 st.columns 在手机端也不换行 */
+    /* 1. 强制手机端不换行 */
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        align-items: stretch !important;
     }
     [data-testid="column"] {
-        width: 20% !important; /* 均分 5 份 */
+        flex: 1 !important;
         min-width: 0px !important;
-        flex-shrink: 1 !important;
     }
     
-    /* 按钮美化与颜色分级 */
+    /* 2. 统一按钮基础样式，解决透明问题 */
     .stButton button {
         width: 100% !important;
-        padding: 5px 2px !important;
-        font-size: 11px !important;
-        height: 55px !important;
-        white-space: pre-wrap !important;
+        height: 60px !important;
+        border-radius: 8px !important;
         border: none !important;
         color: white !important;
+        font-weight: bold !important;
+        white-space: pre-wrap !important;
+        line-height: 1.2 !important;
+        opacity: 1 !important; /* 确保不透明 */
     }
-    
-    /* 针对 1-5 分的特定颜色设置 */
-    /* 不懂-深红, 模糊-橙色, 懂了-黄色, 熟练-浅绿, 秒杀-深绿 */
-    div[data-testid="column"]:nth-of-type(1) button { background-color: #e63946 !important; }
-    div[data-testid="column"]:nth-of-type(2) button { background-color: #f4a261 !important; }
-    div[data-testid="column"]:nth-of-type(3) button { background-color: #e9c46a !important; color: black !important; }
-    div[data-testid="column"]:nth-of-type(4) button { background-color: #2a9d8f !important; }
-    div[data-testid="column"]:nth-of-type(5) button { background-color: #1d3557 !important; }
+
+    /* 3. 分级颜色定义 (从红色渐变到绿色) */
+    /* 1-不懂: 红色 */
+    div[data-testid="column"]:nth-of-type(1) button { background-color: #FF4B4B !important; }
+    /* 2-模糊: 橙色 */
+    div[data-testid="column"]:nth-of-type(2) button { background-color: #FFA500 !important; }
+    /* 3-懂了: 黄色 (黑字更清晰) */
+    div[data-testid="column"]:nth-of-type(3) button { background-color: #FFD700 !important; color: #31333F !important; }
+    /* 4-熟练: 浅绿 */
+    div[data-testid="column"]:nth-of-type(4) button { background-color: #90EE90 !important; color: #31333F !important; }
+    /* 5-秒杀: 深绿 */
+    div[data-testid="column"]:nth-of-type(5) button { background-color: #2E8B57 !important; }
+
+    /* 修复按钮悬停时变透明的问题 */
+    .stButton button:hover {
+        opacity: 0.8 !important;
+        color: inherit !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -81,7 +91,7 @@ if 'idx' not in st.session_state or st.session_state.get('last_file') != selecte
     st.session_state.scores = {}
     st.session_state.is_finished = False
 
-# --- 4. 报告展示逻辑 ---
+# --- 4. 报告页面 ---
 if st.session_state.is_finished:
     st.title("📊 学习成果报告")
     if st.session_state.scores:
@@ -111,14 +121,12 @@ st.write(render_mixed_content(row['Front']))
 
 st.divider()
 
-# --- 关键点：五个掌握程度按钮 ---
-st.write("🎯 **掌握程度自评 (点击自动下一题)：**")
-# 使用 columns 配合 CSS 强制不换行
+# --- 掌握程度按钮 (已应用颜色分级) ---
+st.write("🎯 **掌握程度自评：**")
 cols = st.columns(5)
 labels = ["不懂", "模糊", "懂了", "熟练", "秒杀"]
 for i in range(5):
-    # 这里通过 key 来区分按钮，CSS 负责给这些按钮上色
-    if cols[i].button(f"{i+1}\n{labels[i]}", key=f"btn_{i}"):
+    if cols[i].button(f"{i+1}\n{labels[i]}", key=f"eval_{i}"):
         st.session_state.scores[st.session_state.idx] = i + 1
         if st.session_state.idx < total_questions - 1:
             st.session_state.idx += 1
