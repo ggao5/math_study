@@ -96,7 +96,7 @@ for r in range(rows):
                 st.session_state.idx = q_idx; st.session_state.show = False; st.rerun()
 
 # --- 6. 主界面 ---
-st.title("🧮 数学竞赛练习")
+st.title("🧮 高老师的国际数学竞赛闪卡练习")
 row = df.iloc[st.session_state.idx]
 
 st.info(f"📍 当前题目：第 {st.session_state.idx + 1} 题")
