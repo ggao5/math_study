@@ -6,58 +6,41 @@ import re
 # --- 1. 页面设置 ---
 st.set_page_config(page_title="竞赛数学闪卡", page_icon="🧮", layout="wide")
 
-# 强制注入 MathJax 3.0 配置，确保它能扫描到动态生成的 DOM
+# 强制注入 MathJax 3.0。注意：我们不再在 Python 里做复杂的正则，交给 MathJax 自己去识别 $
 st.markdown("""
     <script>
     window.MathJax = {
       tex: {
         inlineMath: [['$', '$'], ['\\\\(', '\\\\)']],
         displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']],
-        processEscapes: true,
-        packages: {'[+]': ['base', 'ams', 'noerrors', 'noundefined']}
+        processEscapes: true
       },
       options: {
-        renderActions: {
-          addMenu: [] // 禁用右键菜单以减少干扰
-        }
-      },
-      loader: {load: ['[tex]/ams']}
+        ignoreHtmlClass: 'tex2jax_ignore',
+        processHtmlClass: 'tex2jax_process'
+      }
     };
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     """, unsafe_allow_html=True)
 
-# 强制 CSS 修复
+# 侧边栏样式修复
 st.markdown("""
     <style>
     [data-testid="stSidebar"] button p { font-size: 14px !important; white-space: nowrap !important; font-weight: bold; }
     [data-testid="stSidebar"] button { padding: 0px 2px !important; min-width: 45px !important; }
-    [data-testid="column"] { gap: 0.3rem !important; }
-    /* 解析区域字体稍微调大，增加阅读舒适度 */
-    .latex-container { font-size: 1.1rem; line-height: 1.6; }
+    [data-testid="stMain"] .stButton button { white-space: pre-wrap !important; height: auto !important; min-height: 60px; }
     </style>
     """, unsafe_allow_html=True)
 
 def render_mixed_content(text):
+    """
+    最简约的预处理：只处理 Python 读取 CSV 时可能产生的双斜杠污染
+    不再手动翻倍反斜杠，避免干扰 MathJax
+    """
     if not isinstance(text, str): return str(text)
-    
-    # 核心保护逻辑：
-    # 1. 先把 CSV 中可能存在的转义双斜杠 \\ 还原成单斜杠 \
+    # 还原被错误转义的斜杠
     text = text.replace('\\\\', '\\')
-    
-    # 2. 关键修复：Streamlit 的 Markdown 引擎在处理 LaTeX 时，
-    # 往往需要双反斜杠 \\ 才能正确传递给前端 MathJax。
-    # 我们用正则找到所有 $ $ 内部的内容，并将里面的 \ 替换为 \\
-    def latex_replacer(match):
-        formula = match.group(0)
-        # 将公式内部的所有单斜杠 \ 变成双斜杠 \\ 供 Markdown 传输
-        # 但不要重复增加已经有的双斜杠
-        fixed_formula = formula.replace('\\', '\\\\')
-        return fixed_formula
-
-    # 匹配 $...$ (行内公式) 和 $$...$$ (独立公式)
-    text = re.sub(r'\$\$.*?\$\$|\$.*?\$', latex_replacer, text, flags=re.DOTALL)
-    
     return text
 
 # --- 2. 数据处理 ---
@@ -67,14 +50,13 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 @st.cache_data
 def load_data(name):
     p = os.path.join(DATA_DIR, name)
-    # 使用 keep_default_na=False 避免将空单元格识别为 NaN
-    try: return pd.read_csv(p, encoding='utf-8', keep_default_na=False)
-    except: return pd.read_csv(p, encoding='gbk', keep_default_na=False)
+    # 重点：escapechar=None 确保 Pandas 不去动你的反斜杠
+    try: return pd.read_csv(p, encoding='utf-8', keep_default_na=False, escapechar=None)
+    except: return pd.read_csv(p, encoding='gbk', keep_default_na=False, escapechar=None)
 
-# 选择文件逻辑保持不变...
 csv_files = [f for f in os.listdir(DATA_DIR) if f.lower().endswith('.csv')]
 if not csv_files:
-    st.error("Data 文件夹下没有 CSV 文件")
+    st.error("请检查 data 文件夹")
     st.stop()
 selected_file = st.sidebar.selectbox("📚 选择章节", sorted(csv_files))
 df = load_data(selected_file)
@@ -88,7 +70,7 @@ if 'idx' not in st.session_state or st.session_state.get('last_file') != selecte
     st.session_state.scores = {}
     st.session_state.is_finished = False
 
-# --- 4. 报告页面 (保持不变) ---
+# --- 4. 报告页面 ---
 if st.session_state.is_finished:
     st.title("📊 学习成果报告")
     num_scored = len(st.session_state.scores)
@@ -100,7 +82,7 @@ if st.session_state.is_finished:
         st.session_state.idx = 0; st.session_state.scores = {}; st.session_state.is_finished = False; st.rerun()
     st.stop()
 
-# --- 5. 侧边栏 (保持不变) ---
+# --- 5. 侧边栏 ---
 st.sidebar.subheader(f"进度: {len(st.session_state.scores)}/{total_questions}")
 cols_per_row = 4
 rows = (total_questions // cols_per_row) + (1 if total_questions % cols_per_row != 0 else 0)
@@ -114,12 +96,13 @@ for r in range(rows):
                 st.session_state.idx = q_idx; st.session_state.show = False; st.rerun()
 
 # --- 6. 主界面 ---
-st.title("🧮 国际数学竞赛闪卡练习")
+st.title("🧮 数学竞赛练习")
 row = df.iloc[st.session_state.idx]
 
 st.info(f"📍 当前题目：第 {st.session_state.idx + 1} 题")
-# 题目显示
-st.markdown(render_mixed_content(row['Front']))
+
+# 重点：直接渲染，不再包装在自定义 HTML 里
+st.write(render_mixed_content(row['Front']))
 
 st.divider()
 
@@ -134,16 +117,15 @@ for i in range(5):
         else: st.session_state.is_finished = True
         st.rerun()
 
-# --- 解析显示逻辑 (增加重渲染保护) ---
+# --- 解析显示逻辑 ---
 if not st.session_state.show:
     if st.button("🔍 查看解析", use_container_width=True):
         st.session_state.show = True
         st.rerun()
 else:
     st.success("### 💡 解析参考：")
-    # 使用容器包装解析内容，确保样式独立
-    with st.container():
-        st.markdown(render_mixed_content(row['Back']))
+    # 针对长文本解析，st.write 往往比 st.markdown 自动处理 LaTeX 更稳
+    st.write(render_mixed_content(row['Back']))
 
 # --- 7. 导航 ---
 st.divider()
