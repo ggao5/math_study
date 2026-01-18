@@ -3,16 +3,16 @@ import pandas as pd
 import os
 import re
 
-# --- 页面设置 ---
+# --- 1. 页面设置 ---
 st.set_page_config(page_title="竞赛数学闪卡", page_icon="🧮")
 
-# 强制注入 MathJax 脚本，确保浏览器级别的公式渲染（这是你成功的关键，保留不动）
+# 强制注入 MathJax 脚本（这是你公式显示成功的核心原因，绝对不动）
 st.markdown("""
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     """, unsafe_allow_html=True)
 
-# CSS 美化 (保留样式)
+# CSS 样式 (保持原样)
 st.markdown("""
     <style>
     .card-box {
@@ -28,23 +28,20 @@ st.markdown("""
 
 def render_mixed_content(text):
     """
-    终极渲染函数：识别文本中的 $...$ 并确保 Streamlit 能够正确处理。
+    这是你测试成功的渲染逻辑：识别 $...$ 并修复反斜杠
     """
     if not isinstance(text, str): return str(text)
     
-    # 1. 修复 NotebookLM 的双反斜杠问题
+    # 1. 修复反斜杠
     text = text.replace('\\\\', '\\')
     
-    # 2. 核心修复：确保 $ 符号前后有空格，诱导 MathJax 渲染
-    # 我们先统一给 $ 前后加空格，再处理重复空格
-    text = text.replace('$', ' $ ')
-    # 修复数字紧跟 $ 的情况
+    # 2. 强制在 $ 前后加空格（这是诱导 MathJax 渲染的关键）
     text = re.sub(r'(\d)\$', r'\1 $', text)
     text = re.sub(r'\$(\d)', r'$ \1', text)
     
     return text
 
-# --- 路径处理 ---
+# --- 2. 路径与数据处理 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
@@ -74,7 +71,7 @@ if 'idx' not in st.session_state or st.session_state.get('last_file') != selecte
 
 row = df.iloc[st.session_state.idx]
 
-# --- 界面显示 ---
+# --- 3. 界面显示 ---
 st.title("🧮 数学竞赛练习")
 
 # 显示问题 (保持 st.write 逻辑)
@@ -90,27 +87,26 @@ else:
     st.write("### 解析：")
     st.write(render_mixed_content(row['Back']))
     
-    # --- 修改后的打分按钮部分 ---
-    st.write("#### 🎯 掌握程度：")
+    # --- 重点修改：打分按钮 ---
+    st.write("#### 掌握程度：")
     cols = st.columns(5)
-    # 定义中文标签
+    # 这里定义中文含义
     labels = ["不懂", "模糊", "懂了", "熟练", "秒杀"]
     
     for i in range(5):
-        # 将数字和中文合并在按钮上
-        button_text = f"{i+1}\n{labels[i]}"
-        if cols[i].button(button_text):
+        # 按钮文案设为 "数字+中文"，例如 "1 不懂"
+        button_label = f"{i+1} {labels[i]}"
+        if cols[i].button(button_label):
             if st.session_state.idx < len(df) - 1:
                 st.session_state.idx += 1
                 st.session_state.show = False
             else:
                 st.balloons()
-                st.success("🎉 本章完成！")
+                st.success("本章完成！")
             st.rerun()
 
-# 侧边栏辅助
-st.sidebar.write(f"当前进度: {st.session_state.idx + 1} / {len(df)}")
-if st.sidebar.button("下一题 ➡️"):
+# 侧边栏辅助功能
+if st.sidebar.button("下一题"):
     if st.session_state.idx < len(df) - 1:
         st.session_state.idx += 1
         st.session_state.show = False
