@@ -49,7 +49,7 @@ def render_mixed_content(text):
 
 # --- 3. 登录/注册/管理界面 ---
 if 'user' not in st.session_state:
-    st.title("🔐 高老师数学竞赛练习系统")
+    st.title("🔐 国际数学竞赛练习系统")
     tab1, tab2, tab3 = st.tabs(["学生登录", "新同学注册", "教师端后台"])
     all_users = load_all_user_data()
     
@@ -87,57 +87,65 @@ if 'user' not in st.session_state:
 if st.session_state.get("is_admin"):
     st.title("👨‍🏫 教师后台：学生进度管理")
     all_data = load_all_user_data()
-    
     if not all_data:
         st.write("暂无学生注册。")
     else:
         for student, info in all_data.items():
             with st.expander(f"👤 学生：{student}"):
                 history = info.get("history", {})
-                if not history:
-                    st.write("该学生尚未开始任何练习。")
+                if not history: st.write("该学生尚未开始任何练习。")
                 else:
                     for chapter, scores in history.items():
                         num_q = len(scores)
                         avg_s = sum(scores.values())/num_q if num_q > 0 else 0
                         st.write(f"📖 **{chapter}**: 已做 {num_q} 题，平均分 {avg_s:.1f}")
-    
     if st.sidebar.button("🚪 退出管理端"):
         del st.session_state.user
         st.session_state.is_admin = False
         st.rerun()
     st.stop()
 
-# --- 5. 章节选择与进度恢复选择 ---
+# --- 5. 章节选择 (【修改2】登入后的第一步) ---
 user_id = st.session_state.user
 all_data = load_all_user_data()
 user_record = all_data[user_id]
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
-csv_files = [f for f in os.listdir(DATA_DIR) if f.lower().endswith('.csv')]
-selected_file = st.sidebar.selectbox("📚 选择章节", sorted(csv_files))
+csv_files = sorted([f for f in os.listdir(DATA_DIR) if f.lower().endswith('.csv')])
 
-# 【修改1】自动恢复进度选择
-if 'current_chapter' not in st.session_state or st.session_state.current_chapter != selected_file:
+if 'current_chapter' not in st.session_state:
+    st.title(f"👋 你好，{user_id}")
+    st.subheader("第一步：请选择要练习的章节")
+    selected_chapter = st.selectbox("📚 可选章节", csv_files, index=None, placeholder="点击此处选择章节...")
+    
+    if selected_chapter:
+        if st.button("确认进入该章节"):
+            st.session_state.current_chapter = selected_chapter
+            st.rerun()
+    
+    if st.sidebar.button("🚪 退出登录"):
+        del st.session_state.user; st.rerun()
+    st.stop()
+
+# --- 6. 进度恢复逻辑 ---
+selected_file = st.session_state.current_chapter
+if 'scores' not in st.session_state:
     hist = user_record["history"].get(selected_file, {})
     if hist:
-        st.warning(f"检测到您之前做过《{selected_file}》。")
+        st.info(f"📍 检测到您之前在《{selected_file}》中有练习记录。")
         c1, c2 = st.columns(2)
-        if c1.button("继续上次进度"):
+        if c1.button("继续上次进度", use_container_width=True):
             st.session_state.scores = {int(k): v for k, v in hist.items()}
-            st.session_state.current_chapter = selected_file
             st.rerun()
-        if c2.button("重头开始(清除记录)"):
+        if c2.button("重头开始(清除旧记录)", use_container_width=True):
             st.session_state.scores = {}
-            st.session_state.current_chapter = selected_file
             st.rerun()
         st.stop()
     else:
         st.session_state.scores = {}
-        st.session_state.current_chapter = selected_file
 
-# --- 6. 正常练习逻辑 ---
+# --- 7. 正常练习逻辑加载数据 ---
 df = pd.read_csv(os.path.join(DATA_DIR, selected_file), encoding='utf-8', keep_default_na=False, escapechar=None)
 total_questions = len(df)
 
@@ -148,7 +156,7 @@ if 'idx' not in st.session_state or st.session_state.get('last_file') != selecte
     st.session_state.is_finished = False
     st.session_state.confirm_end = False
 
-# --- 7. 报告页面 (含分级评价) ---
+# --- 8. 报告页面 (【修改1】修改鼓励语) ---
 if st.session_state.is_finished:
     st.title(f"📊 {user_id} 的学习报告")
     num_scored = len(st.session_state.scores)
@@ -156,20 +164,33 @@ if st.session_state.is_finished:
     if num_scored > 0:
         avg = sum(st.session_state.scores.values()) / num_scored
         st.metric("本章平均分", f"{avg:.1f}")
-        if avg >= 4.0: st.success(f"🌟 非常出色！你的平均分是 {avg:.1f}。高老师为你骄傲！")
-        elif avg >= 3.0: st.info(f"👍 表现不错。平均分 {avg:.1f}。建议针对模糊点再巩固。")
-        else: st.warning(f"📖 平均分 {avg:.1f} 偏低。建议重新复习基础。")
+        # 修改后的鼓励语，删除了“高老师”
+        if avg >= 4.0: st.success(f"🌟 非常出色！你的平均分达到了 {avg:.1f}。你已经完全掌握了本章精髓，继续保持！")
+        elif avg >= 3.0: st.info(f"👍 表现不错。平均分 {avg:.1f}。大部分题目已经掌握，建议针对模糊点再巩固。")
+        else: st.warning(f"📖 平均分 {avg:.1f} 略低。建议回到课件重新复习基础知识。")
         user_record["history"][selected_file] = st.session_state.scores
         all_data[user_id] = user_record
         save_user_data(all_data)
-    if st.button("🔄 重新练习本章"):
+    
+    c_r1, c_r2 = st.columns(2)
+    if c_r1.button("🔄 重新练习本章", use_container_width=True):
         st.session_state.scores = {}; st.session_state.is_finished = False; st.rerun()
-    if st.button("🚪 退出登录"):
+    if c_r2.button("📑 选择其他章节", use_container_width=True):
+        del st.session_state.current_chapter
+        del st.session_state.scores
+        st.rerun()
+    if st.sidebar.button("🚪 退出登录"):
         del st.session_state.user; st.rerun()
     st.stop()
 
-# --- 8. 侧边栏与主界面 ---
+# --- 9. 侧边栏与主界面 ---
 st.sidebar.write(f"👤 学生：**{user_id}**")
+st.sidebar.write(f"📖 章节：{selected_file}")
+if st.sidebar.button("🔄 切换章节"):
+    del st.session_state.current_chapter
+    del st.session_state.scores
+    st.rerun()
+
 st.sidebar.subheader(f"进度: {len(st.session_state.scores)}/{total_questions}")
 cols_per_row = 4
 for r in range((total_questions // cols_per_row) + (1 if total_questions % cols_per_row != 0 else 0)):
@@ -181,7 +202,7 @@ for r in range((total_questions // cols_per_row) + (1 if total_questions % cols_
             if cols[c].button(f"{q_idx+1}", key=f"nav_{q_idx}", type=t, use_container_width=True):
                 st.session_state.idx = q_idx; st.session_state.show = False; st.rerun()
 
-st.title("🧮 高老师的国际数学竞赛闪卡练习")
+st.title("🧮 竞赛数学闪卡练习")
 row = df.iloc[st.session_state.idx]
 st.info(f"📍 当前题目：第 {st.session_state.idx + 1} 题")
 st.write(render_mixed_content(row['Front']))
@@ -207,7 +228,7 @@ else:
     st.success("### 💡 解析参考：")
     st.write(render_mixed_content(row['Back']))
 
-# --- 9. 底部导航与确认逻辑 ---
+# --- 10. 底部导航与确认逻辑 ---
 st.divider()
 n1, n2, n3 = st.columns(3)
 with n1:
