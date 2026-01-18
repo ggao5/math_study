@@ -4,7 +4,7 @@ import os
 import json
 
 # --- 1. 页面与环境设置 ---
-st.set_page_config(page_title="竞赛数学闪卡系统", page_icon="🧮", layout="wide")
+st.set_page_config(page_title="高老师的国际竞赛数学闪卡系统", page_icon="🧮", layout="wide")
 
 # MathJax 渲染脚本 (保持渲染效果最优秀的配置)
 st.markdown("""
@@ -202,7 +202,7 @@ for r in range((total_questions // cols_per_row) + (1 if total_questions % cols_
             if cols[c].button(f"{q_idx+1}", key=f"nav_{q_idx}", type=t, use_container_width=True):
                 st.session_state.idx = q_idx; st.session_state.show = False; st.rerun()
 
-st.title("🧮 竞赛数学闪卡练习")
+st.title("🧮 高老师的国际数学竞赛闪卡练习")
 row = df.iloc[st.session_state.idx]
 st.info(f"📍 当前题目：第 {st.session_state.idx + 1} 题")
 st.write(render_mixed_content(row['Front']))
