@@ -4,9 +4,9 @@ import os
 import json
 
 # --- 1. 页面与环境设置 ---
-st.set_page_config(page_title="高老师的国际竞赛数学闪卡系统", page_icon="🧮", layout="wide")
+st.set_page_config(page_title="高老师的国际数学竞赛闪卡练习", page_icon="🧮", layout="wide")
 
-# MathJax 渲染脚本 (保持渲染效果最优秀的配置)
+# 强制注入 MathJax 3.0 保持渲染效果
 st.markdown("""
     <script>
     window.MathJax = {
@@ -17,9 +17,16 @@ st.markdown("""
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     """, unsafe_allow_html=True)
 
-# 样式修复
+# 样式修复 & 隐藏右上角不必要元素 (Deploy, GitHub, Menu)
 st.markdown("""
     <style>
+    /* 隐藏右上角的 Deploy 按钮、GitHub 图标以及 Streamlit 默认菜单 */
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stDeployButton {display:none;}
+    
+    /* 侧边栏及按钮样式 */
     [data-testid="stSidebar"] button p { font-size: 14px !important; white-space: nowrap !important; font-weight: bold; }
     [data-testid="stSidebar"] button { padding: 0px 2px !important; min-width: 45px !important; }
     [data-testid="stMain"] .stButton button { white-space: pre-wrap !important; height: auto !important; min-height: 60px; }
@@ -49,7 +56,7 @@ def render_mixed_content(text):
 
 # --- 3. 登录/注册/管理界面 ---
 if 'user' not in st.session_state:
-    st.title("🔐 国际数学竞赛练习系统")
+    st.title("🔐 高老师的国际数学竞赛系统")
     tab1, tab2, tab3 = st.tabs(["学生登录", "新同学注册", "教师端后台"])
     all_users = load_all_user_data()
     
@@ -105,7 +112,7 @@ if st.session_state.get("is_admin"):
         st.rerun()
     st.stop()
 
-# --- 5. 章节选择 (【修改2】登入后的第一步) ---
+# --- 5. 章节选择 ---
 user_id = st.session_state.user
 all_data = load_all_user_data()
 user_record = all_data[user_id]
@@ -156,7 +163,7 @@ if 'idx' not in st.session_state or st.session_state.get('last_file') != selecte
     st.session_state.is_finished = False
     st.session_state.confirm_end = False
 
-# --- 8. 报告页面 (【修改1】修改鼓励语) ---
+# --- 8. 报告页面 ---
 if st.session_state.is_finished:
     st.title(f"📊 {user_id} 的学习报告")
     num_scored = len(st.session_state.scores)
@@ -164,7 +171,6 @@ if st.session_state.is_finished:
     if num_scored > 0:
         avg = sum(st.session_state.scores.values()) / num_scored
         st.metric("本章平均分", f"{avg:.1f}")
-        # 修改后的鼓励语，删除了“高老师”
         if avg >= 4.0: st.success(f"🌟 非常出色！你的平均分达到了 {avg:.1f}。你已经完全掌握了本章精髓，继续保持！")
         elif avg >= 3.0: st.info(f"👍 表现不错。平均分 {avg:.1f}。大部分题目已经掌握，建议针对模糊点再巩固。")
         else: st.warning(f"📖 平均分 {avg:.1f} 略低。建议回到课件重新复习基础知识。")
@@ -202,7 +208,8 @@ for r in range((total_questions // cols_per_row) + (1 if total_questions % cols_
             if cols[c].button(f"{q_idx+1}", key=f"nav_{q_idx}", type=t, use_container_width=True):
                 st.session_state.idx = q_idx; st.session_state.show = False; st.rerun()
 
-st.title("🧮 高老师的国际数学竞赛闪卡练习")
+# 恢复指定的标题
+st.title("高老师的国际数学竞赛闪卡练习")
 row = df.iloc[st.session_state.idx]
 st.info(f"📍 当前题目：第 {st.session_state.idx + 1} 题")
 st.write(render_mixed_content(row['Front']))
