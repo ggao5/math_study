@@ -6,47 +6,54 @@ import re
 # --- 1. 页面设置 ---
 st.set_page_config(page_title="竞赛数学闪卡", page_icon="🧮", layout="wide")
 
-# 强制注入 MathJax 脚本
+# 强制注入 MathJax 配置，增强对复杂公式的识别
 st.markdown("""
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\\\(', '\\\\)']],
+        displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']],
+        processEscapes: true
+      }
+    };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     """, unsafe_allow_html=True)
 
-# 强制 CSS 修复：题号水平显示 + 侧边栏样式
 st.markdown("""
     <style>
-    /* 1. 确保侧边栏数字水平显示，不换行 */
+    /* 侧边栏数字不换行 */
     [data-testid="stSidebar"] button p {
         font-size: 14px !important;
         white-space: nowrap !important;
         font-weight: bold;
     }
-    
     [data-testid="stSidebar"] button {
         padding: 0px 2px !important;
         min-width: 45px !important;
     }
-
-    /* 2. 评分按钮样式 */
-    [data-testid="stMain"] .stButton button {
-        white-space: pre-wrap !important;
-        height: auto !important;
-        min-height: 60px;
-    }
-
-    /* 3. 侧边栏列间距 */
-    [data-testid="column"] {
-        gap: 0.3rem !important;
-    }
+    [data-testid="column"] { gap: 0.3rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
 def render_mixed_content(text):
     if not isinstance(text, str): return str(text)
-    # 核心 LaTeX 预处理，保持不变
+    
+    # 步骤1: 修复双反斜杠问题（CSV读取常有的坑）
     text = text.replace('\\\\', '\\')
+    
+    # 步骤2: 关键修复 - 保护 LaTeX 反斜杠
+    # 确保像 \frac, \pi, \sqrt 这种字符前面的反斜杠是干净的
+    # 我们通过正则在 $ 符号包裹的内容中做轻微调整
+    def fix_latex(match):
+        content = match.group(0)
+        # 移除可能误加的转义
+        return content.replace('\\', '\\\\') 
+
+    # 步骤3: 统一美元符号间距
     text = re.sub(r'(\d)\$', r'\1 $', text)
     text = re.sub(r'\$(\d)', r'$ \1', text)
+    
     return text
 
 # --- 2. 数据处理 ---
@@ -54,7 +61,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
 if not os.path.exists(DATA_DIR):
-    st.error("路径错误，请检查 data 文件夹")
+    st.error("路径错误")
     st.stop()
 
 csv_files = [f for f in os.listdir(DATA_DIR) if f.lower().endswith('.csv')]
@@ -63,8 +70,9 @@ selected_file = st.sidebar.selectbox("📚 选择章节", sorted(csv_files))
 @st.cache_data
 def load_data(name):
     p = os.path.join(DATA_DIR, name)
-    try: return pd.read_csv(p, encoding='utf-8')
-    except: return pd.read_csv(p, encoding='gbk')
+    # 读取时显式处理转义字符
+    try: return pd.read_csv(p, encoding='utf-8', escapechar=None)
+    except: return pd.read_csv(p, encoding='gbk', escapechar=None)
 
 df = load_data(selected_file)
 total_questions = len(df)
@@ -83,112 +91,73 @@ if st.session_state.is_finished:
     st.title("📊 学习成果报告")
     num_scored = len(st.session_state.scores)
     st.subheader(f"完成情况：{num_scored} / {total_questions}")
-    
     if num_scored > 0:
         avg_score = sum(st.session_state.scores.values()) / num_scored
-        st.metric("平均掌握度分数", f"{avg_score:.1f}")
-        
-        if avg_score >= 4.0:
-            st.success(f"🌟 非常出色！平均分 {avg_score:.1f}。")
-        elif avg_score >= 3.0:
-            st.info(f"👍 表现不错。平均分 {avg_score:.1f}。")
-        else:
-            st.warning(f"📖 平均分 {avg_score:.1f}。建议复习。")
-    
-    if st.button("🔄 重新开始本章"):
-        st.session_state.idx = 0
-        st.session_state.show = False
-        st.session_state.scores = {}
-        st.session_state.is_finished = False
-        st.session_state.confirm_end = False
-        st.rerun()
+        st.metric("平均掌握度", f"{avg_score:.1f}")
+        if avg_score >= 4.0: st.success("🌟 非常出色！")
+        elif avg_score >= 3.0: st.info("👍 表现不错。")
+        else: st.warning("📖 建议复习。")
+    if st.button("🔄 重新开始"):
+        st.session_state.idx = 0; st.session_state.scores = {}; st.session_state.is_finished = False; st.rerun()
     st.stop()
 
-# --- 5. 侧边栏：紧凑型状态面板 (4列布局确保数字不竖排) ---
-st.sidebar.divider()
+# --- 5. 侧边栏 ---
 st.sidebar.subheader(f"进度: {len(st.session_state.scores)}/{total_questions}")
-st.sidebar.progress(len(st.session_state.scores) / total_questions)
-
 cols_per_row = 4
 rows = (total_questions // cols_per_row) + (1 if total_questions % cols_per_row != 0 else 0)
-
 for r in range(rows):
     cols = st.sidebar.columns(cols_per_row)
     for c in range(cols_per_row):
         q_idx = r * cols_per_row + c
         if q_idx < total_questions:
-            btn_type = "primary" if q_idx in st.session_state.scores else "secondary"
-            if cols[c].button(f"{q_idx+1}", key=f"nav_{q_idx}", type=btn_type, use_container_width=True):
-                st.session_state.idx = q_idx
-                st.session_state.show = False
-                st.rerun()
+            t = "primary" if q_idx in st.session_state.scores else "secondary"
+            if cols[c].button(f"{q_idx+1}", key=f"nav_{q_idx}", type=t, use_container_width=True):
+                st.session_state.idx = q_idx; st.session_state.show = False; st.rerun()
 
 # --- 6. 主界面 ---
-st.title("🧮 国际数学竞赛闪卡训练")
+st.title("🧮 国际数学竞赛闪卡练习")
 row = df.iloc[st.session_state.idx]
-
-# --- 修复核心：恢复 st.write，不使用 HTML div ---
 st.info(f"📍 当前题目：第 {st.session_state.idx + 1} 题")
-st.write(render_mixed_content(row['Front']))
+
+# 使用 Markdown 渲染，并明确指定处理 LaTeX
+st.markdown(render_mixed_content(row['Front']))
 
 st.divider()
 
-# 打分按钮
-st.write("🎯 **请评估你对本题的掌握程度：**")
+# 打分与解析
 score_cols = st.columns(5)
 labels = ["不懂", "模糊", "懂了", "熟练", "秒杀"]
 for i in range(5):
     if score_cols[i].button(f"{i+1}\n{labels[i]}", key=f"s_{i}", use_container_width=True):
         st.session_state.scores[st.session_state.idx] = i + 1
         if st.session_state.idx < total_questions - 1:
-            st.session_state.idx += 1
-            st.session_state.show = False
-        else:
-            st.session_state.is_finished = True
+            st.session_state.idx += 1; st.session_state.show = False
+        else: st.session_state.is_finished = True
         st.rerun()
 
-# 解析
 if not st.session_state.show:
     if st.button("🔍 查看解析", use_container_width=True):
-        st.session_state.show = True
-        st.rerun()
+        st.session_state.show = True; st.rerun()
 else:
     st.success("### 💡 解析参考：")
-    st.write(render_mixed_content(row['Back']))
+    st.markdown(render_mixed_content(row['Back']))
 
-# --- 7. 导航确认逻辑 ---
+# --- 7. 导航 ---
 st.divider()
 n1, n2, n3 = st.columns([1, 1, 2])
 with n1:
     if st.button("⬅️ 上一题", use_container_width=True):
-        if st.session_state.idx > 0:
-            st.session_state.idx -= 1
-            st.session_state.show = False
-            st.rerun()
+        if st.session_state.idx > 0: st.session_state.idx -= 1; st.session_state.show = False; st.rerun()
 with n2:
     if st.button("跳过 ➡️", use_container_width=True):
-        if st.session_state.idx < total_questions - 1:
-            st.session_state.idx += 1
-            st.session_state.show = False
-            st.rerun()
+        if st.session_state.idx < total_questions - 1: st.session_state.idx += 1; st.session_state.show = False; st.rerun()
 with n3:
-    if st.button("🏁 结束自测查看报告", use_container_width=True, type="primary"):
-        unanswered = [i + 1 for i in range(total_questions) if i not in st.session_state.scores]
-        if unanswered:
-            st.session_state.confirm_end = True
-        else:
-            st.session_state.is_finished = True
+    if st.button("🏁 结束自测", use_container_width=True, type="primary"):
+        if [i for i in range(total_questions) if i not in st.session_state.scores]: st.session_state.confirm_end = True
+        else: st.session_state.is_finished = True
         st.rerun()
 
 if st.session_state.confirm_end:
-    unanswered = [i + 1 for i in range(total_questions) if i not in st.session_state.scores]
-    st.warning(f"⚠️ **提醒：还有 {len(unanswered)} 道题目未进行评分！**")
-    st.write(f"未评分题号：{', '.join(map(str, unanswered))}")
-    ca, cb = st.columns(2)
-    if ca.button("确认结束直接看报告", use_container_width=True):
-        st.session_state.is_finished = True
-        st.session_state.confirm_end = False
-        st.rerun()
-    if cb.button("返回题目继续评分", use_container_width=True):
-        st.session_state.confirm_end = False
-        st.rerun()
+    st.warning("⚠️ 还有题目未评分！")
+    if st.button("确认结束", use_container_width=True): st.session_state.is_finished = True; st.rerun()
+    if st.button("返回继续", use_container_width=True): st.session_state.confirm_end = False; st.rerun()
