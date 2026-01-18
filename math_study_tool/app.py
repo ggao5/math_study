@@ -3,42 +3,43 @@ import pandas as pd
 import os
 import re
 
-# --- 页面配置 ---
-st.set_page_config(page_title="竞赛数学闪卡", page_icon="🧮", layout="centered")
+# --- 页面设置 ---
+st.set_page_config(page_title="竞赛数学闪卡", page_icon="🧮")
 
-# 自定义 CSS：美化卡片和按钮，适配微信手机端
+# 强制注入 MathJax 脚本，确保浏览器级别的公式渲染
+st.markdown("""
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    """, unsafe_allow_html=True)
+
+# CSS 美化
 st.markdown("""
     <style>
-    .main { background-color: #f8f9fa; }
-    .stButton>button { width: 100%; border-radius: 12px; height: 3.5em; font-weight: bold; }
     .card-box {
         padding: 20px;
         border-radius: 15px;
-        background-color: white;
+        background-color: #ffffff;
         border: 1px solid #e0e0e0;
-        box-shadow: 2px 2px 8px rgba(0,0,0,0.05);
         margin-bottom: 20px;
         font-size: 1.1em;
-        line-height: 1.6;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 核心函数：修复 LaTeX 显示问题 ---
-def fix_latex(text):
+def render_mixed_content(text):
     """
-    处理 CSV 中的 LaTeX 转义问题。
-    1. 将双反斜杠还原为单反斜杠 (\\dots -> \dots)
-    2. 确保 $ 符号周围没有干扰字符
+    终极渲染函数：识别文本中的 $...$ 并确保 Streamlit 能够正确处理。
     """
-    if not isinstance(text, str):
-        return str(text)
+    if not isinstance(text, str): return str(text)
     
-    # 还原转义的反斜杠
+    # 1. 修复 NotebookLM 的双反斜杠问题
     text = text.replace('\\\\', '\\')
     
-    # NotebookLM 导出的 LaTeX 经常使用 $...$
-    # Streamlit 的 markdown 对 $ 比较敏感，我们确保它能被正确识别
+    # 2. 核心修复：Streamlit 的 markdown 要求 $ 符号前后必须有空格才能触发 LaTeX
+    # 我们用正则在 $ 外侧强制加空格
+    text = re.sub(r'(\d)\$', r'\1 $', text) # 数字后跟$加空格
+    text = re.sub(r'\$(\d)', r'$ \1', text) # $后跟数字加空格
+    
     return text
 
 # --- 路径处理 ---
@@ -46,92 +47,62 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
 if not os.path.exists(DATA_DIR):
-    st.error("❌ 目录下未找到 'data' 文件夹")
+    st.error("请确保 GitHub 仓库中有 data 文件夹")
     st.stop()
 
 csv_files = [f for f in os.listdir(DATA_DIR) if f.lower().endswith('.csv')]
-
 if not csv_files:
-    st.warning("⚠️ data 文件夹内没有 .csv 文件")
+    st.warning("data 文件夹里没看到 CSV 文件")
     st.stop()
 
-# --- 侧边栏 ---
-st.sidebar.title("📚 课程目录")
 selected_file = st.sidebar.selectbox("选择章节：", sorted(csv_files))
 
-# --- 加载数据 ---
 @st.cache_data
-def load_data(file_name):
-    path = os.path.join(DATA_DIR, file_name)
-    try:
-        # 尝试常用编码
-        return pd.read_csv(path, encoding='utf-8')
-    except:
-        return pd.read_csv(path, encoding='gbk')
+def load_data(name):
+    p = os.path.join(DATA_DIR, name)
+    try: return pd.read_csv(p, encoding='utf-8')
+    except: return pd.read_csv(p, encoding='gbk')
 
 df = load_data(selected_file)
 
-# --- 状态管理 ---
-if 'card_index' not in st.session_state or st.session_state.get('current_chapter') != selected_file:
-    st.session_state.card_index = 0
-    st.session_state.show_answer = False
-    st.session_state.current_chapter = selected_file
-    st.session_state.scores = {}
+if 'idx' not in st.session_state or st.session_state.get('last_file') != selected_file:
+    st.session_state.idx = 0
+    st.session_state.show = False
+    st.session_state.last_file = selected_file
 
-# --- 页面主体 ---
-st.title("🧮 国际数学竞赛自测")
-st.write(f"当前章节：**{selected_file.replace('.csv', '')}**")
+row = df.iloc[st.session_state.idx]
 
-total_cards = len(df)
-current_idx = st.session_state.card_index
-row = df.iloc[current_idx]
+# --- 界面显示 ---
+st.title("🧮 数学竞赛练习")
 
-# 进度条
-st.progress((current_idx + 1) / total_cards)
-st.caption(f"题目进度：{current_idx + 1} / {total_cards}")
+# 显示问题
+st.write("### 题目：")
+# 这里直接使用 st.write，它对混合 LaTeX 的处理比 st.markdown 有时更稳
+st.write(render_mixed_content(row['Front']))
 
-# --- 题目显示 ---
-st.markdown("#### 📝 问题：")
-# 重点：处理 LaTeX 后再显示
-q_content = fix_latex(row['Front'])
-st.markdown(f'<div class="card-box">{q_content}</div>', unsafe_allow_html=True)
-
-if not st.session_state.show_answer:
-    if st.button("🔍 查看解析"):
-        st.session_state.show_answer = True
+if not st.session_state.show:
+    if st.button("查看解析"):
+        st.session_state.show = True
         st.rerun()
-
-# --- 答案与打分 ---
-if st.session_state.show_answer:
-    st.markdown("#### 💡 解析：")
-    a_content = fix_latex(row['Back'])
-    st.markdown(f'<div class="card-box" style="border-left: 5px solid #28a745;">{a_content}</div>', unsafe_allow_html=True)
+else:
+    st.write("---")
+    st.write("### 解析：")
+    st.write(render_mixed_content(row['Back']))
     
-    st.divider()
-    st.write("🎯 **请评价你的掌握程度：**")
+    # 打分按钮
+    st.write("#### 掌握程度：")
     cols = st.columns(5)
-    labels = ["完全不会", "有点懵", "基本懂", "熟练", "秒杀"]
     for i in range(5):
-        if cols[i].button(f"{i+1}\n{labels[i]}"):
-            st.session_state.scores[current_idx] = i + 1
-            if current_idx < total_cards - 1:
-                st.session_state.card_index += 1
-                st.session_state.show_answer = False
+        if cols[i].button(f"{i+1}"):
+            if st.session_state.idx < len(df) - 1:
+                st.session_state.idx += 1
+                st.session_state.show = False
             else:
-                st.balloons()
-                st.success("🎉 本章练习完成！")
+                st.success("本章完成！")
             st.rerun()
 
-# --- 底部控制 ---
-st.sidebar.divider()
-c1, c2 = st.sidebar.columns(2)
-if c1.button("⬅️ 上一题"):
-    if st.session_state.card_index > 0:
-        st.session_state.card_index -= 1
-        st.session_state.show_answer = False
-        st.rerun()
-if c2.button("下一题 ➡️"):
-    if st.session_state.card_index < total_cards - 1:
-        st.session_state.card_index += 1
-        st.session_state.show_answer = False
+if st.sidebar.button("下一题"):
+    if st.session_state.idx < len(df) - 1:
+        st.session_state.idx += 1
+        st.session_state.show = False
         st.rerun()
