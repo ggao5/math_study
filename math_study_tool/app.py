@@ -124,7 +124,7 @@ for r in range(rows):
                 st.rerun()
 
 # --- 6. 主界面 ---
-st.title("🧮 数学竞赛练习")
+st.title("🧮 国际数学竞赛闪卡训练")
 row = df.iloc[st.session_state.idx]
 
 # --- 修复核心：恢复 st.write，不使用 HTML div ---
