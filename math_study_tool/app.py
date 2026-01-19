@@ -20,13 +20,11 @@ st.markdown("""
 # 样式修复 & 隐藏右上角不必要元素 (Deploy, GitHub, Menu)
 st.markdown("""
     <style>
-    /* 隐藏右上角的 Deploy 按钮、GitHub 图标以及 Streamlit 默认菜单 */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
     .stDeployButton {display:none;}
     
-    /* 侧边栏及按钮样式 */
     [data-testid="stSidebar"] button p { font-size: 14px !important; white-space: nowrap !important; font-weight: bold; }
     [data-testid="stSidebar"] button { padding: 0px 2px !important; min-width: 45px !important; }
     [data-testid="stMain"] .stButton button { white-space: pre-wrap !important; height: auto !important; min-height: 60px; }
@@ -90,7 +88,7 @@ if 'user' not in st.session_state:
             else: st.error("管理员权限验证失败。")
     st.stop()
 
-# --- 4. 教师端后台显示 ---
+# --- 4. 教师端后台 ---
 if st.session_state.get("is_admin"):
     st.title("👨‍🏫 教师后台：学生进度管理")
     all_data = load_all_user_data()
@@ -125,12 +123,10 @@ if 'current_chapter' not in st.session_state:
     st.title(f"👋 你好，{user_id}")
     st.subheader("第一步：请选择要练习的章节")
     selected_chapter = st.selectbox("📚 可选章节", csv_files, index=None, placeholder="点击此处选择章节...")
-    
     if selected_chapter:
         if st.button("确认进入该章节"):
             st.session_state.current_chapter = selected_chapter
             st.rerun()
-    
     if st.sidebar.button("🚪 退出登录"):
         del st.session_state.user; st.rerun()
     st.stop()
@@ -152,7 +148,7 @@ if 'scores' not in st.session_state:
     else:
         st.session_state.scores = {}
 
-# --- 7. 正常练习逻辑加载数据 ---
+# --- 7. 加载数据 ---
 df = pd.read_csv(os.path.join(DATA_DIR, selected_file), encoding='utf-8', keep_default_na=False, escapechar=None)
 total_questions = len(df)
 
@@ -163,28 +159,50 @@ if 'idx' not in st.session_state or st.session_state.get('last_file') != selecte
     st.session_state.is_finished = False
     st.session_state.confirm_end = False
 
-# --- 8. 报告页面 ---
+# --- 8. 学习报告页面 ---
 if st.session_state.is_finished:
-    st.title(f"📊 {user_id} 的学习报告")
+    # 修改：动态章节报告标题
+    chapter_pure_name = os.path.splitext(selected_file)[0]
+    st.title(f"📊 {user_id} {chapter_pure_name} 学习报告")
+    
     num_scored = len(st.session_state.scores)
     st.subheader(f"完成进度：{num_scored} / {total_questions}")
+    
     if num_scored > 0:
         avg = sum(st.session_state.scores.values()) / num_scored
         st.metric("本章平均分", f"{avg:.1f}")
         if avg >= 4.0: st.success(f"🌟 非常出色！你的平均分达到了 {avg:.1f}。你已经完全掌握了本章精髓，继续保持！")
         elif avg >= 3.0: st.info(f"👍 表现不错。平均分 {avg:.1f}。大部分题目已经掌握，建议针对模糊点再巩固。")
         else: st.warning(f"📖 平均分 {avg:.1f} 略低。建议回到课件重新复习基础知识。")
+        
         user_record["history"][selected_file] = st.session_state.scores
         all_data[user_id] = user_record
         save_user_data(all_data)
+
+        # 修改：汇总展示熟练度 <= 3 的题目
+        weak_indices = [i for i, s in st.session_state.scores.items() if s <= 3]
+        if weak_indices:
+            st.divider()
+            st.subheader("🔍 弱项汇总（掌握度 3 及以下的题目）")
+            for q_idx in sorted(weak_indices):
+                with st.expander(f"题号 {q_idx + 1} - 当前分值: {st.session_state.scores[q_idx]}"):
+                    st.markdown("**题目内容：**")
+                    st.write(render_mixed_content(df.iloc[q_idx]['Front']))
+                    st.markdown("**解析参考：**")
+                    st.write(render_mixed_content(df.iloc[q_idx]['Back']))
     
-    c_r1, c_r2 = st.columns(2)
-    if c_r1.button("🔄 重新练习本章", use_container_width=True):
+    st.divider()
+    # 修改：三按钮同行布局
+    btn_cols = st.columns(3)
+    if btn_cols[0].button("🔄 重新练习本章", use_container_width=True):
         st.session_state.scores = {}; st.session_state.is_finished = False; st.rerun()
-    if c_r2.button("📑 选择其他章节", use_container_width=True):
+    if btn_cols[1].button("➡️ 继续上次进度", use_container_width=True):
+        st.session_state.is_finished = False; st.rerun()
+    if btn_cols[2].button("📑 选择其他章节", use_container_width=True):
         del st.session_state.current_chapter
         del st.session_state.scores
         st.rerun()
+        
     if st.sidebar.button("🚪 退出登录"):
         del st.session_state.user; st.rerun()
     st.stop()
@@ -193,9 +211,7 @@ if st.session_state.is_finished:
 st.sidebar.write(f"👤 学生：**{user_id}**")
 st.sidebar.write(f"📖 章节：{selected_file}")
 if st.sidebar.button("🔄 切换章节"):
-    del st.session_state.current_chapter
-    del st.session_state.scores
-    st.rerun()
+    del st.session_state.current_chapter; del st.session_state.scores; st.rerun()
 
 st.sidebar.subheader(f"进度: {len(st.session_state.scores)}/{total_questions}")
 cols_per_row = 4
@@ -208,7 +224,6 @@ for r in range((total_questions // cols_per_row) + (1 if total_questions % cols_
             if cols[c].button(f"{q_idx+1}", key=f"nav_{q_idx}", type=t, use_container_width=True):
                 st.session_state.idx = q_idx; st.session_state.show = False; st.rerun()
 
-# 恢复指定的标题
 st.title("高老师的国际数学竞赛闪卡练习")
 row = df.iloc[st.session_state.idx]
 st.info(f"📍 当前题目：第 {st.session_state.idx + 1} 题")
@@ -235,7 +250,7 @@ else:
     st.success("### 💡 解析参考：")
     st.write(render_mixed_content(row['Back']))
 
-# --- 10. 底部导航与确认逻辑 ---
+# --- 10. 底部导航 ---
 st.divider()
 n1, n2, n3 = st.columns(3)
 with n1:
