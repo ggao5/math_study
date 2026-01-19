@@ -33,7 +33,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 水印背景辅助函数 (将本地图片转为base64)
+# --- 水印背景辅助函数 (修改了CSS实现方式) ---
 def get_base64_bin_file(bin_file):
     with open(bin_file, 'rb') as f:
         data = f.read()
@@ -42,21 +42,26 @@ def get_base64_bin_file(bin_file):
 def set_watermark_bg():
     if os.path.exists("watermark.png"):
         bin_str = get_base64_bin_file("watermark.png")
+        # 修改重点：调整CSS以让水印可见
         page_bg_img = f'''
         <style>
+        /* 设置整个应用的背景图片 */
         .stApp {{
             background-image: url("data:image/png;base64,{bin_str}");
-            background-size: cover;
-            background-repeat: no-repeat;
+            background-repeat: repeat; /* 改为重复平铺，形成纹理感 */
+            background-size: 300px auto; /* 设置一个合适的大小，让它不用被拉伸 */
             background-attachment: fixed;
-            background-position: center;
-            background-opacity: 0.1; /* 注意：CSS本身没有background-opacity，通常通过图片透明度控制 */
+            background-position: center top;
         }}
-        /* 为内容区域增加一层半透明，确保文字清晰 */
-        [data-testid="stVerticalBlock"] {{
-            background-color: rgba(255, 255, 255, 0.85);
-            padding: 20px;
-            border-radius: 10px;
+        
+        /* 调整内容区域的背景遮罩，使其更透明 */
+        .main .block-container {{
+            /* 使用 rgba 设置白色背景，0.5 表示 50% 透明度，让水印透出来 */
+            background-color: rgba(255, 255, 255, 0.5) !important; 
+            padding: 30px !important;
+            border-radius: 15px;
+            /* 加一点阴影让内容区与背景区分开 */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }}
         </style>
         '''
@@ -165,14 +170,13 @@ if 'current_chapter' not in st.session_state:
         del st.session_state.user; st.rerun()
     st.stop()
 
-# --- 6. 进度恢复逻辑 (修改：去除文件名中的 .csv) ---
+# --- 6. 进度恢复逻辑 ---
 selected_file = st.session_state.current_chapter
-pure_chapter_name = os.path.splitext(selected_file)[0] # 获取去除后缀的文件名
+pure_chapter_name = os.path.splitext(selected_file)[0]
 
 if 'scores' not in st.session_state:
     hist = user_record["history"].get(selected_file, {})
     if hist:
-        # 修改提示信息，不显示 .csv
         st.info(f"📍 检测到您之前在《{pure_chapter_name}》中有练习记录。")
         c1, c2 = st.columns(2)
         if c1.button("继续上次进度", use_container_width=True):
