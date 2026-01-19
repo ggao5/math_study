@@ -5,7 +5,6 @@ import json
 import base64
 
 # --- 1. 页面与环境设置 ---
-# 注意：set_page_config 必须是第一个 Streamlit 命令
 st.set_page_config(page_title="高老师的国际数学竞赛闪卡练习", page_icon="🧮", layout="wide")
 
 # 强制注入 MathJax 3.0 保持渲染效果
@@ -19,39 +18,47 @@ st.markdown("""
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     """, unsafe_allow_html=True)
 
-# 【深度定制】 aggressive CSS：强制隐藏所有 Streamlit 官方痕迹
+# 【终极去痕】Aggressive CSS: 隐藏所有开发/管理按键
 st.markdown("""
     <style>
-    /* 1. 彻底隐藏顶部 Header (包含部署按钮、GitHub、分享等所有图标) */
+    /* 1. 隐藏顶部 Header (包含部署按钮、GitHub图标等) */
     header[data-testid="stHeader"] {
         display: none !important;
     }
 
-    /* 2. 彻底隐藏底部 Footer (包含 "Made with Streamlit" 和所有链接) */
+    /* 2. 隐藏底部 Footer (Made with Streamlit) */
     footer {
         display: none !important;
+        visibility: hidden !important;
     }
 
-    /* 3. 彻底隐藏右下角 "Manage app" 黑框及其容器 */
+    /* 3. 【核心修改】彻底隐藏右下角 "Manage app" 及其所有变体容器 */
     [data-testid="stStatusWidget"], 
-    .viewerBadge_container__1QSob, 
-    .viewerBadge_link__1S137,
-    #stStatusWidget {
+    .stStatusWidget, 
+    #stStatusWidget,
+    div[data-testid="stToolbar"],
+    .stToolbar,
+    iframe[title="Manage app"] {
         display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        height: 0 !important;
+        width: 0 !important;
     }
 
-    /* 4. 隐藏主菜单 (右上角三个点) */
+    /* 4. 隐藏主菜单按钮 */
     #MainMenu {
         display: none !important;
     }
 
-    /* 5. 样式修正：移除因为隐藏 Header 留下的顶部空白 */
+    /* 5. 调整页面顶部边距 */
     .block-container {
-        padding-top: 2rem !important;
+        padding-top: 1.5rem !important;
         padding-bottom: 0rem !important;
     }
 
-    /* 6. 按钮与侧边栏样式微调 */
+    /* 6. 按钮与侧边栏样式 */
     [data-testid="stSidebar"] button p { font-size: 14px !important; white-space: nowrap !important; font-weight: bold; }
     [data-testid="stSidebar"] button { padding: 0px 2px !important; min-width: 45px !important; }
     [data-testid="stMain"] .stButton button { white-space: pre-wrap !important; height: auto !important; min-height: 60px; }
@@ -77,7 +84,6 @@ def set_watermark_bg():
             background-attachment: fixed;
             background-position: center top;
         }}
-        /* 内容遮罩层透明度调整 */
         .main .block-container {{
             background-color: rgba(255, 255, 255, 0.6) !important; 
             padding: 30px !important;
@@ -144,7 +150,7 @@ if 'user' not in st.session_state:
             else: st.error("管理员权限验证失败。")
     st.stop()
 
-# --- 登录后加载背景水印 ---
+# --- 成功登入后显示水印 ---
 if not st.session_state.get("is_admin"):
     set_watermark_bg()
 
