@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import json
+import base64
 
 # --- 1. 页面与环境设置 ---
 st.set_page_config(page_title="高老师的国际数学竞赛闪卡练习", page_icon="🧮", layout="wide")
@@ -17,7 +18,7 @@ st.markdown("""
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     """, unsafe_allow_html=True)
 
-# 样式修复 & 隐藏右上角不必要元素 (Deploy, GitHub, Menu)
+# 基础样式 & 隐藏右上角不必要元素
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
@@ -31,6 +32,35 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"] > div { display: flex; justify-content: center; }
     </style>
     """, unsafe_allow_html=True)
+
+# 水印背景辅助函数 (将本地图片转为base64)
+def get_base64_bin_file(bin_file):
+    with open(bin_file, 'rb') as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+
+def set_watermark_bg():
+    if os.path.exists("watermark.png"):
+        bin_str = get_base64_bin_file("watermark.png")
+        page_bg_img = f'''
+        <style>
+        .stApp {{
+            background-image: url("data:image/png;base64,{bin_str}");
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            background-position: center;
+            background-opacity: 0.1; /* 注意：CSS本身没有background-opacity，通常通过图片透明度控制 */
+        }}
+        /* 为内容区域增加一层半透明，确保文字清晰 */
+        [data-testid="stVerticalBlock"] {{
+            background-color: rgba(255, 255, 255, 0.85);
+            padding: 20px;
+            border-radius: 10px;
+        }}
+        </style>
+        '''
+        st.markdown(page_bg_img, unsafe_allow_html=True)
 
 # --- 2. 数据持久化逻辑 ---
 USER_DATA_FILE = "user_progress.json"
@@ -52,7 +82,7 @@ def render_mixed_content(text):
     if not isinstance(text, str): return str(text)
     return text.replace('\\\\', '\\')
 
-# --- 3. 登录/注册/管理界面 ---
+# --- 3. 登录/注册/管理界面 (不显示水印) ---
 if 'user' not in st.session_state:
     st.title("🔐 高老师的国际数学竞赛系统")
     tab1, tab2, tab3 = st.tabs(["学生登录", "新同学注册", "教师端后台"])
@@ -87,6 +117,10 @@ if 'user' not in st.session_state:
                 st.rerun()
             else: st.error("管理员权限验证失败。")
     st.stop()
+
+# --- 成功登入后：开启水印 ---
+if not st.session_state.get("is_admin"):
+    set_watermark_bg()
 
 # --- 4. 教师端后台 ---
 if st.session_state.get("is_admin"):
@@ -131,12 +165,15 @@ if 'current_chapter' not in st.session_state:
         del st.session_state.user; st.rerun()
     st.stop()
 
-# --- 6. 进度恢复逻辑 ---
+# --- 6. 进度恢复逻辑 (修改：去除文件名中的 .csv) ---
 selected_file = st.session_state.current_chapter
+pure_chapter_name = os.path.splitext(selected_file)[0] # 获取去除后缀的文件名
+
 if 'scores' not in st.session_state:
     hist = user_record["history"].get(selected_file, {})
     if hist:
-        st.info(f"📍 检测到您之前在《{selected_file}》中有练习记录。")
+        # 修改提示信息，不显示 .csv
+        st.info(f"📍 检测到您之前在《{pure_chapter_name}》中有练习记录。")
         c1, c2 = st.columns(2)
         if c1.button("继续上次进度", use_container_width=True):
             st.session_state.scores = {int(k): v for k, v in hist.items()}
@@ -161,10 +198,7 @@ if 'idx' not in st.session_state or st.session_state.get('last_file') != selecte
 
 # --- 8. 学习报告页面 ---
 if st.session_state.is_finished:
-    # 修改：动态章节报告标题
-    chapter_pure_name = os.path.splitext(selected_file)[0]
-    st.title(f"📊 {user_id} {chapter_pure_name} 学习报告")
-    
+    st.title(f"📊 {user_id} {pure_chapter_name} 学习报告")
     num_scored = len(st.session_state.scores)
     st.subheader(f"完成进度：{num_scored} / {total_questions}")
     
@@ -179,7 +213,6 @@ if st.session_state.is_finished:
         all_data[user_id] = user_record
         save_user_data(all_data)
 
-        # 修改：汇总展示熟练度 <= 3 的题目
         weak_indices = [i for i, s in st.session_state.scores.items() if s <= 3]
         if weak_indices:
             st.divider()
@@ -192,24 +225,20 @@ if st.session_state.is_finished:
                     st.write(render_mixed_content(df.iloc[q_idx]['Back']))
     
     st.divider()
-    # 修改：三按钮同行布局
     btn_cols = st.columns(3)
     if btn_cols[0].button("🔄 重新练习本章", use_container_width=True):
         st.session_state.scores = {}; st.session_state.is_finished = False; st.rerun()
     if btn_cols[1].button("➡️ 继续上次进度", use_container_width=True):
         st.session_state.is_finished = False; st.rerun()
     if btn_cols[2].button("📑 选择其他章节", use_container_width=True):
-        del st.session_state.current_chapter
-        del st.session_state.scores
-        st.rerun()
-        
+        del st.session_state.current_chapter; del st.session_state.scores; st.rerun()
     if st.sidebar.button("🚪 退出登录"):
         del st.session_state.user; st.rerun()
     st.stop()
 
 # --- 9. 侧边栏与主界面 ---
 st.sidebar.write(f"👤 学生：**{user_id}**")
-st.sidebar.write(f"📖 章节：{selected_file}")
+st.sidebar.write(f"📖 章节：{pure_chapter_name}")
 if st.sidebar.button("🔄 切换章节"):
     del st.session_state.current_chapter; del st.session_state.scores; st.rerun()
 
