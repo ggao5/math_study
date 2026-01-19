@@ -5,6 +5,7 @@ import json
 import base64
 
 # --- 1. 页面与环境设置 ---
+# 注意：set_page_config 必须是第一个 Streamlit 命令
 st.set_page_config(page_title="高老师的国际数学竞赛闪卡练习", page_icon="🧮", layout="wide")
 
 # 强制注入 MathJax 3.0 保持渲染效果
@@ -18,22 +19,39 @@ st.markdown("""
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     """, unsafe_allow_html=True)
 
-# 【核心修改】深度定制化 CSS：隐藏所有开发痕迹
+# 【深度定制】 aggressive CSS：强制隐藏所有 Streamlit 官方痕迹
 st.markdown("""
     <style>
-    /* 1. 隐藏右上角菜单、部署按钮和GitHub链接 */
-    #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
-    .stDeployButton {display:none;}
+    /* 1. 彻底隐藏顶部 Header (包含部署按钮、GitHub、分享等所有图标) */
+    header[data-testid="stHeader"] {
+        display: none !important;
+    }
 
-    /* 2. 隐藏页脚（Made with Streamlit 及相关链接） */
-    footer {visibility: hidden;}
-    
-    /* 3. 隐藏右下角 "Manage app" 黑框和状态显示 */
-    [data-testid="stStatusWidget"] {display: none;}
-    .reportview-container .main footer {visibility: hidden;}
-    
-    /* 4. 侧边栏及按钮样式优化 */
+    /* 2. 彻底隐藏底部 Footer (包含 "Made with Streamlit" 和所有链接) */
+    footer {
+        display: none !important;
+    }
+
+    /* 3. 彻底隐藏右下角 "Manage app" 黑框及其容器 */
+    [data-testid="stStatusWidget"], 
+    .viewerBadge_container__1QSob, 
+    .viewerBadge_link__1S137,
+    #stStatusWidget {
+        display: none !important;
+    }
+
+    /* 4. 隐藏主菜单 (右上角三个点) */
+    #MainMenu {
+        display: none !important;
+    }
+
+    /* 5. 样式修正：移除因为隐藏 Header 留下的顶部空白 */
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 0rem !important;
+    }
+
+    /* 6. 按钮与侧边栏样式微调 */
     [data-testid="stSidebar"] button p { font-size: 14px !important; white-space: nowrap !important; font-weight: bold; }
     [data-testid="stSidebar"] button { padding: 0px 2px !important; min-width: 45px !important; }
     [data-testid="stMain"] .stButton button { white-space: pre-wrap !important; height: auto !important; min-height: 60px; }
@@ -59,11 +77,12 @@ def set_watermark_bg():
             background-attachment: fixed;
             background-position: center top;
         }}
+        /* 内容遮罩层透明度调整 */
         .main .block-container {{
-            background-color: rgba(255, 255, 255, 0.5) !important; 
+            background-color: rgba(255, 255, 255, 0.6) !important; 
             padding: 30px !important;
             border-radius: 15px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
         }}
         </style>
         '''
@@ -89,7 +108,7 @@ def render_mixed_content(text):
     if not isinstance(text, str): return str(text)
     return text.replace('\\\\', '\\')
 
-# --- 3. 登录/注册/管理界面 ---
+# --- 3. 登录界面 ---
 if 'user' not in st.session_state:
     st.title("🔐 高老师的国际数学竞赛系统")
     tab1, tab2, tab3 = st.tabs(["学生登录", "新同学注册", "教师端后台"])
@@ -125,7 +144,7 @@ if 'user' not in st.session_state:
             else: st.error("管理员权限验证失败。")
     st.stop()
 
-# --- 成功登入后显示水印 ---
+# --- 登录后加载背景水印 ---
 if not st.session_state.get("is_admin"):
     set_watermark_bg()
 
@@ -206,9 +225,9 @@ if st.session_state.is_finished:
     if num_scored > 0:
         avg = sum(st.session_state.scores.values()) / num_scored
         st.metric("本章平均分", f"{avg:.1f}")
-        if avg >= 4.0: st.success(f"🌟 非常出色！你的平均分达到了 {avg:.1f}。你已经完全掌握了本章精髓，继续保持！")
-        elif avg >= 3.0: st.info(f"👍 表现不错。平均分 {avg:.1f}。大部分题目已经掌握，建议针对模糊点再巩固。")
-        else: st.warning(f"📖 平均分 {avg:.1f} 略低。建议回到课件重新复习基础知识。")
+        if avg >= 4.0: st.success(f"🌟 非常出色！你的平均分达到了 {avg:.1f}。")
+        elif avg >= 3.0: st.info(f"👍 表现不错。平均分 {avg:.1f}。")
+        else: st.warning(f"📖 平均分 {avg:.1f} 略低。建议重新复习。")
         
         user_record["history"][selected_file] = st.session_state.scores
         all_data[user_id] = user_record
@@ -217,12 +236,11 @@ if st.session_state.is_finished:
         weak_indices = [i for i, s in st.session_state.scores.items() if s <= 3]
         if weak_indices:
             st.divider()
-            st.subheader("🔍 弱项汇总（掌握度 3 及以下的题目）")
+            st.subheader("🔍 弱项汇总")
             for q_idx in sorted(weak_indices):
                 with st.expander(f"题号 {q_idx + 1} - 当前分值: {st.session_state.scores[q_idx]}"):
-                    st.markdown("**题目内容：**")
                     st.write(render_mixed_content(df.iloc[q_idx]['Front']))
-                    st.markdown("**解析参考：**")
+                    st.success("**解析参考：**")
                     st.write(render_mixed_content(df.iloc[q_idx]['Back']))
     
     st.divider()
@@ -233,8 +251,6 @@ if st.session_state.is_finished:
         st.session_state.is_finished = False; st.rerun()
     if btn_cols[2].button("📑 选择其他章节", use_container_width=True):
         del st.session_state.current_chapter; del st.session_state.scores; st.rerun()
-    if st.sidebar.button("🚪 退出登录"):
-        del st.session_state.user; st.rerun()
     st.stop()
 
 # --- 9. 侧边栏与主界面 ---
@@ -298,7 +314,6 @@ if st.session_state.confirm_end:
     unanswered = [i + 1 for i in range(total_questions) if i not in st.session_state.scores]
     if unanswered:
         st.warning(f"⚠️ **还有 {len(unanswered)} 道题目没有评分！**")
-        st.write(f"未完成题号：{', '.join(map(str, unanswered))}")
     else: st.info("🎉 所有题目已评分完成。")
     ca, cb = st.columns(2)
     if ca.button("确认结束", use_container_width=True):
