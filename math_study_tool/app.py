@@ -18,47 +18,14 @@ st.markdown("""
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     """, unsafe_allow_html=True)
 
-# 【终极去痕】Aggressive CSS: 隐藏所有开发/管理按键
+# 基础样式 & 隐藏右上角不必要元素
 st.markdown("""
     <style>
-    /* 1. 隐藏顶部 Header (包含部署按钮、GitHub图标等) */
-    header[data-testid="stHeader"] {
-        display: none !important;
-    }
-
-    /* 2. 隐藏底部 Footer (Made with Streamlit) */
-    footer {
-        display: none !important;
-        visibility: hidden !important;
-    }
-
-    /* 3. 【核心修改】彻底隐藏右下角 "Manage app" 及其所有变体容器 */
-    [data-testid="stStatusWidget"], 
-    .stStatusWidget, 
-    #stStatusWidget,
-    div[data-testid="stToolbar"],
-    .stToolbar,
-    iframe[title="Manage app"] {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-        height: 0 !important;
-        width: 0 !important;
-    }
-
-    /* 4. 隐藏主菜单按钮 */
-    #MainMenu {
-        display: none !important;
-    }
-
-    /* 5. 调整页面顶部边距 */
-    .block-container {
-        padding-top: 1.5rem !important;
-        padding-bottom: 0rem !important;
-    }
-
-    /* 6. 按钮与侧边栏样式 */
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stDeployButton {display:none;}
+    
     [data-testid="stSidebar"] button p { font-size: 14px !important; white-space: nowrap !important; font-weight: bold; }
     [data-testid="stSidebar"] button { padding: 0px 2px !important; min-width: 45px !important; }
     [data-testid="stMain"] .stButton button { white-space: pre-wrap !important; height: auto !important; min-height: 60px; }
@@ -66,7 +33,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 水印背景辅助函数 ---
+# 水印背景辅助函数 (将本地图片转为base64)
 def get_base64_bin_file(bin_file):
     with open(bin_file, 'rb') as f:
         data = f.read()
@@ -79,16 +46,17 @@ def set_watermark_bg():
         <style>
         .stApp {{
             background-image: url("data:image/png;base64,{bin_str}");
-            background-repeat: repeat;
-            background-size: 300px auto;
+            background-size: cover;
+            background-repeat: no-repeat;
             background-attachment: fixed;
-            background-position: center top;
+            background-position: center;
+            background-opacity: 0.1; /* 注意：CSS本身没有background-opacity，通常通过图片透明度控制 */
         }}
-        .main .block-container {{
-            background-color: rgba(255, 255, 255, 0.6) !important; 
-            padding: 30px !important;
-            border-radius: 15px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        /* 为内容区域增加一层半透明，确保文字清晰 */
+        [data-testid="stVerticalBlock"] {{
+            background-color: rgba(255, 255, 255, 0.85);
+            padding: 20px;
+            border-radius: 10px;
         }}
         </style>
         '''
@@ -114,7 +82,7 @@ def render_mixed_content(text):
     if not isinstance(text, str): return str(text)
     return text.replace('\\\\', '\\')
 
-# --- 3. 登录界面 ---
+# --- 3. 登录/注册/管理界面 (不显示水印) ---
 if 'user' not in st.session_state:
     st.title("🔐 高老师的国际数学竞赛系统")
     tab1, tab2, tab3 = st.tabs(["学生登录", "新同学注册", "教师端后台"])
@@ -150,7 +118,7 @@ if 'user' not in st.session_state:
             else: st.error("管理员权限验证失败。")
     st.stop()
 
-# --- 成功登入后显示水印 ---
+# --- 成功登入后：开启水印 ---
 if not st.session_state.get("is_admin"):
     set_watermark_bg()
 
@@ -171,7 +139,9 @@ if st.session_state.get("is_admin"):
                         avg_s = sum(scores.values())/num_q if num_q > 0 else 0
                         st.write(f"📖 **{chapter}**: 已做 {num_q} 题，平均分 {avg_s:.1f}")
     if st.sidebar.button("🚪 退出管理端"):
-        del st.session_state.user; st.session_state.is_admin = False; st.rerun()
+        del st.session_state.user
+        st.session_state.is_admin = False
+        st.rerun()
     st.stop()
 
 # --- 5. 章节选择 ---
@@ -195,13 +165,14 @@ if 'current_chapter' not in st.session_state:
         del st.session_state.user; st.rerun()
     st.stop()
 
-# --- 6. 进度恢复逻辑 ---
+# --- 6. 进度恢复逻辑 (修改：去除文件名中的 .csv) ---
 selected_file = st.session_state.current_chapter
-pure_chapter_name = os.path.splitext(selected_file)[0]
+pure_chapter_name = os.path.splitext(selected_file)[0] # 获取去除后缀的文件名
 
 if 'scores' not in st.session_state:
     hist = user_record["history"].get(selected_file, {})
     if hist:
+        # 修改提示信息，不显示 .csv
         st.info(f"📍 检测到您之前在《{pure_chapter_name}》中有练习记录。")
         c1, c2 = st.columns(2)
         if c1.button("继续上次进度", use_container_width=True):
@@ -219,8 +190,11 @@ df = pd.read_csv(os.path.join(DATA_DIR, selected_file), encoding='utf-8', keep_d
 total_questions = len(df)
 
 if 'idx' not in st.session_state or st.session_state.get('last_file') != selected_file:
-    st.session_state.idx = 0; st.session_state.show = False; st.session_state.last_file = selected_file
-    st.session_state.is_finished = False; st.session_state.confirm_end = False
+    st.session_state.idx = 0
+    st.session_state.show = False
+    st.session_state.last_file = selected_file
+    st.session_state.is_finished = False
+    st.session_state.confirm_end = False
 
 # --- 8. 学习报告页面 ---
 if st.session_state.is_finished:
@@ -231,9 +205,9 @@ if st.session_state.is_finished:
     if num_scored > 0:
         avg = sum(st.session_state.scores.values()) / num_scored
         st.metric("本章平均分", f"{avg:.1f}")
-        if avg >= 4.0: st.success(f"🌟 非常出色！你的平均分达到了 {avg:.1f}。")
-        elif avg >= 3.0: st.info(f"👍 表现不错。平均分 {avg:.1f}。")
-        else: st.warning(f"📖 平均分 {avg:.1f} 略低。建议重新复习。")
+        if avg >= 4.0: st.success(f"🌟 非常出色！你的平均分达到了 {avg:.1f}。你已经完全掌握了本章精髓，继续保持！")
+        elif avg >= 3.0: st.info(f"👍 表现不错。平均分 {avg:.1f}。大部分题目已经掌握，建议针对模糊点再巩固。")
+        else: st.warning(f"📖 平均分 {avg:.1f} 略低。建议回到课件重新复习基础知识。")
         
         user_record["history"][selected_file] = st.session_state.scores
         all_data[user_id] = user_record
@@ -242,11 +216,12 @@ if st.session_state.is_finished:
         weak_indices = [i for i, s in st.session_state.scores.items() if s <= 3]
         if weak_indices:
             st.divider()
-            st.subheader("🔍 弱项汇总")
+            st.subheader("🔍 弱项汇总（掌握度 3 及以下的题目）")
             for q_idx in sorted(weak_indices):
                 with st.expander(f"题号 {q_idx + 1} - 当前分值: {st.session_state.scores[q_idx]}"):
+                    st.markdown("**题目内容：**")
                     st.write(render_mixed_content(df.iloc[q_idx]['Front']))
-                    st.success("**解析参考：**")
+                    st.markdown("**解析参考：**")
                     st.write(render_mixed_content(df.iloc[q_idx]['Back']))
     
     st.divider()
@@ -257,6 +232,8 @@ if st.session_state.is_finished:
         st.session_state.is_finished = False; st.rerun()
     if btn_cols[2].button("📑 选择其他章节", use_container_width=True):
         del st.session_state.current_chapter; del st.session_state.scores; st.rerun()
+    if st.sidebar.button("🚪 退出登录"):
+        del st.session_state.user; st.rerun()
     st.stop()
 
 # --- 9. 侧边栏与主界面 ---
@@ -320,6 +297,7 @@ if st.session_state.confirm_end:
     unanswered = [i + 1 for i in range(total_questions) if i not in st.session_state.scores]
     if unanswered:
         st.warning(f"⚠️ **还有 {len(unanswered)} 道题目没有评分！**")
+        st.write(f"未完成题号：{', '.join(map(str, unanswered))}")
     else: st.info("🎉 所有题目已评分完成。")
     ca, cb = st.columns(2)
     if ca.button("确认结束", use_container_width=True):
