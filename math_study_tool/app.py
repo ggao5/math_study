@@ -18,14 +18,22 @@ st.markdown("""
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     """, unsafe_allow_html=True)
 
-# 基础样式 & 隐藏右上角不必要元素
+# 【核心修改】深度定制化 CSS：隐藏所有开发痕迹
 st.markdown("""
     <style>
+    /* 1. 隐藏右上角菜单、部署按钮和GitHub链接 */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
-    footer {visibility: hidden;}
     .stDeployButton {display:none;}
+
+    /* 2. 隐藏页脚（Made with Streamlit 及相关链接） */
+    footer {visibility: hidden;}
     
+    /* 3. 隐藏右下角 "Manage app" 黑框和状态显示 */
+    [data-testid="stStatusWidget"] {display: none;}
+    .reportview-container .main footer {visibility: hidden;}
+    
+    /* 4. 侧边栏及按钮样式优化 */
     [data-testid="stSidebar"] button p { font-size: 14px !important; white-space: nowrap !important; font-weight: bold; }
     [data-testid="stSidebar"] button { padding: 0px 2px !important; min-width: 45px !important; }
     [data-testid="stMain"] .stButton button { white-space: pre-wrap !important; height: auto !important; min-height: 60px; }
@@ -33,7 +41,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 水印背景辅助函数 (修改了CSS实现方式) ---
+# --- 水印背景辅助函数 ---
 def get_base64_bin_file(bin_file):
     with open(bin_file, 'rb') as f:
         data = f.read()
@@ -42,25 +50,19 @@ def get_base64_bin_file(bin_file):
 def set_watermark_bg():
     if os.path.exists("watermark.png"):
         bin_str = get_base64_bin_file("watermark.png")
-        # 修改重点：调整CSS以让水印可见
         page_bg_img = f'''
         <style>
-        /* 设置整个应用的背景图片 */
         .stApp {{
             background-image: url("data:image/png;base64,{bin_str}");
-            background-repeat: repeat; /* 改为重复平铺，形成纹理感 */
-            background-size: 300px auto; /* 设置一个合适的大小，让它不用被拉伸 */
+            background-repeat: repeat;
+            background-size: 300px auto;
             background-attachment: fixed;
             background-position: center top;
         }}
-        
-        /* 调整内容区域的背景遮罩，使其更透明 */
         .main .block-container {{
-            /* 使用 rgba 设置白色背景，0.5 表示 50% 透明度，让水印透出来 */
-            background-color: rgba(255, 255, 255, 0.2) !important; 
+            background-color: rgba(255, 255, 255, 0.5) !important; 
             padding: 30px !important;
             border-radius: 15px;
-            /* 加一点阴影让内容区与背景区分开 */
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }}
         </style>
@@ -87,7 +89,7 @@ def render_mixed_content(text):
     if not isinstance(text, str): return str(text)
     return text.replace('\\\\', '\\')
 
-# --- 3. 登录/注册/管理界面 (不显示水印) ---
+# --- 3. 登录/注册/管理界面 ---
 if 'user' not in st.session_state:
     st.title("🔐 高老师的国际数学竞赛系统")
     tab1, tab2, tab3 = st.tabs(["学生登录", "新同学注册", "教师端后台"])
@@ -123,7 +125,7 @@ if 'user' not in st.session_state:
             else: st.error("管理员权限验证失败。")
     st.stop()
 
-# --- 成功登入后：开启水印 ---
+# --- 成功登入后显示水印 ---
 if not st.session_state.get("is_admin"):
     set_watermark_bg()
 
@@ -144,9 +146,7 @@ if st.session_state.get("is_admin"):
                         avg_s = sum(scores.values())/num_q if num_q > 0 else 0
                         st.write(f"📖 **{chapter}**: 已做 {num_q} 题，平均分 {avg_s:.1f}")
     if st.sidebar.button("🚪 退出管理端"):
-        del st.session_state.user
-        st.session_state.is_admin = False
-        st.rerun()
+        del st.session_state.user; st.session_state.is_admin = False; st.rerun()
     st.stop()
 
 # --- 5. 章节选择 ---
@@ -194,11 +194,8 @@ df = pd.read_csv(os.path.join(DATA_DIR, selected_file), encoding='utf-8', keep_d
 total_questions = len(df)
 
 if 'idx' not in st.session_state or st.session_state.get('last_file') != selected_file:
-    st.session_state.idx = 0
-    st.session_state.show = False
-    st.session_state.last_file = selected_file
-    st.session_state.is_finished = False
-    st.session_state.confirm_end = False
+    st.session_state.idx = 0; st.session_state.show = False; st.session_state.last_file = selected_file
+    st.session_state.is_finished = False; st.session_state.confirm_end = False
 
 # --- 8. 学习报告页面 ---
 if st.session_state.is_finished:
