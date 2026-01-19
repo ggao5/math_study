@@ -84,7 +84,7 @@ def render_mixed_content(text):
 
 # --- 3. 登录/注册/管理界面 (不显示水印) ---
 if 'user' not in st.session_state:
-    st.title("🔐 高老师的国际数学竞赛系统")
+    st.title("🔐 积分国际教育数学竞赛自学系统")
     tab1, tab2, tab3 = st.tabs(["学生登录", "新同学注册", "教师端后台"])
     all_users = load_all_user_data()
     
