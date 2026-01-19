@@ -57,7 +57,7 @@ def set_watermark_bg():
         /* 调整内容区域的背景遮罩，使其更透明 */
         .main .block-container {{
             /* 使用 rgba 设置白色背景，0.5 表示 50% 透明度，让水印透出来 */
-            background-color: rgba(255, 255, 255, 0.5) !important; 
+            background-color: rgba(255, 255, 255, 0.2) !important; 
             padding: 30px !important;
             border-radius: 15px;
             /* 加一点阴影让内容区与背景区分开 */
