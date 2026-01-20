@@ -33,11 +33,17 @@ st.markdown("""
     header[data-testid="stHeader"] {
         background-color: rgba(0,0,0,0) !important;
     }
+    
+    /* 【核心修改：彻底隐藏右上角 GitHub 按钮和 Streamlit 工具栏】 */
     #MainMenu {
         visibility: hidden !important;
     }
-    [data-testid="stHeader"] > div:nth-child(1) > div:nth-child(3) {
+    .stAppToolbar, 
+    .stDeployButton, 
+    [data-testid="stHeader"] > div:nth-child(1) > div:nth-child(3),
+    a[href*="github.com"] {
         display: none !important;
+        visibility: hidden !important;
     }
 
     /* 3. 隐藏页脚 */
@@ -226,7 +232,7 @@ if st.session_state.is_finished:
         avg = sum(st.session_state.scores.values()) / num_scored
         st.metric("本章平均分", f"{avg:.1f}")
         
-        # 【恢复：详细鼓励性评价文案】
+        # 详细鼓励性评价文案
         if avg >= 4.0: st.success(f"🌟 非常出色！你的平均分达到了 {avg:.1f}。你已经完全掌握了本章精髓，继续保持！")
         elif avg >= 3.0: st.info(f"👍 表现不错。平均分 {avg:.1f}。大部分题目已经掌握，建议针对模糊点再巩固。")
         else: st.warning(f"📖 平均分 {avg:.1f} 略低。建议回到课件重新复习基础知识。")
@@ -314,7 +320,7 @@ if st.session_state.confirm_end:
     st.markdown("---")
     unanswered = [i + 1 for i in range(total_questions) if i not in st.session_state.scores]
     if unanswered:
-        # 【恢复：显示具体未评分的题号】
+        # 显示具体未评分的题号
         st.warning(f"⚠️ **还有 {len(unanswered)} 道题目没有评分！**")
         st.write(f"未完成题号：{', '.join(map(str, unanswered))}")
     else: st.info("🎉 所有题目已评分完成。")
