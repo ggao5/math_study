@@ -49,10 +49,7 @@ Front,Back
 "若 $a+b+c+d=1$，则 $a^2+b^2+c^2+d^2$ 的最小值是？","$\frac{1}{4}$"
 "已知正实数 $x, y, z$ 满足 $xy^2z^3 = 108$，求 $x+y+z$ 的最小值应使用哪种不等式？","加权平均不等式（将 $y$ 拆为 $\frac{y}{2}+\frac{y}{2}$，$z$ 拆为 $\frac{z}{3}+\frac{z}{3}+\frac{z}{3}$）"
 "证明 $\sqrt{a^2+b^2} + \sqrt{x^2+y^2} \ge \sqrt{(a-x)^2+(b-y)^2}$ 的几何意义是？","三角形两边之和大于第三边（或 Minkowski 不等式的二维形式）。"
-"公式 $\lfloor x 
-floor + \lfloor y 
-floor \le \lfloor x+y 
-floor$ 描述的是下取整函数的什么性质？","超加性 (Superadditivity)"
+"公式 $\lfloor x \rfloor + \lfloor y \rfloor \le \lfloor x+y \rfloor$ 描述的是下取整函数的什么性质？","超加性 (Superadditivity)"
 "在解决 $n$ 项绝对值之和 $|x-a_1| + \dots + |x-a_n|$ 最小化问题时，关键在于将 $x$ 放在什么的范围内？","数组 $\{a_i\}$ 的中位数位置。"
 "对于正实数 $a, b, c$，求 $\frac{a}{b+c} + \frac{b}{a+c} + \frac{c}{a+b}$ 的最小值（Nesbitt's Inequality）是多少？","$\frac{3}{2}$"
 "在 $n$ 维向量空间中，柯西不等式等价于两个向量的点积与模长乘积的什么关系？","$|\vec{a} \cdot \vec{b}| \le |\vec{a}| |\vec{b}|$"
