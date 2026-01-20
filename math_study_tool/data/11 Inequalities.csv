@@ -18,7 +18,7 @@ Front,Back
 "求 $y = |x - a_1| + \dots + |x - a_n|$ 的最小值，若 $n = 2m$（偶数）且 $a_1 \le \dots \le a_n$，则 $x$ 取何值时 $y$最小？","$a_m \le x \le a_{m+1}$"
 "高斯函数（下取整）定义：$\lfloor x \rfloor$ 满足的范围是？","$\lfloor x \rfloor \le x < \lfloor x \rfloor + 1$"
 "上取整函数 $\lceil x \rceil$ 满足的范围是？","$\lceil x \rceil - 1 < x \le \lceil x \rceil$"
-"分数部分函数 $\{x\}$ 的定义域及值域是？","定义为 $x - \lfloor x \rfloor$，值域为 $[0, 1)$"
+"分数部分函数 $\{x\}$ 的定义是什么，以及值域是？","定义为 $x - \lfloor x \rfloor$，值域为 $[0, 1)$"
 "下取整函数性质：$\lfloor x + y 
 floor - (\lfloor x 
 floor + \lfloor y 
