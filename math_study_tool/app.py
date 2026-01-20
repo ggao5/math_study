@@ -18,7 +18,7 @@ st.markdown("""
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     """, unsafe_allow_html=True)
 
-# 【核心修改：CSS 样式优化】
+# 基础样式 & 隐藏右上角不必要元素
 st.markdown("""
     <style>
     /* 1. 彻底抹除右下角 "Manage app" 悬浮窗 */
@@ -29,15 +29,13 @@ st.markdown("""
         visibility: hidden !important;
     }
 
-    /* 2. 隐藏页头背景和右侧装饰图标（GitHub, 分享等），但保留左侧的侧边栏箭头 */
+    /* 2. 隐藏页头背景和右侧装饰图标，但保留左侧的侧边栏箭头 */
     header[data-testid="stHeader"] {
-        background-color: rgba(0,0,0,0) !important; /* 背景完全透明 */
+        background-color: rgba(0,0,0,0) !important;
     }
-    /* 隐藏右上角三个点菜单 */
     #MainMenu {
         visibility: hidden !important;
     }
-    /* 隐藏页头右侧的所有工具栏按钮，确保侧边栏展开按钮（左侧）不被破坏 */
     [data-testid="stHeader"] > div:nth-child(1) > div:nth-child(3) {
         display: none !important;
     }
@@ -49,7 +47,7 @@ st.markdown("""
     
     /* 4. 商业软件布局优化 */
     .block-container {
-        padding-top: 2rem !important; /* 留出一点空间给侧边栏展开按钮 */
+        padding-top: 2rem !important;
     }
     [data-testid="stSidebar"] button p { font-size: 14px !important; white-space: nowrap !important; font-weight: bold; }
     [data-testid="stSidebar"] button { padding: 0px 2px !important; min-width: 45px !important; }
@@ -176,8 +174,6 @@ csv_files = sorted([f for f in os.listdir(DATA_DIR) if f.lower().endswith('.csv'
 if 'current_chapter' not in st.session_state:
     st.title(f"👋 你好，{user_id}")
     st.subheader("第一步：请选择要练习的章节")
-    
-    # 【核心修改：使用更暴力的 format_func 抹除后缀】
     selected_chapter = st.selectbox(
         "📚 可选章节", 
         csv_files, 
@@ -185,7 +181,6 @@ if 'current_chapter' not in st.session_state:
         placeholder="点击此处选择章节...",
         format_func=lambda x: str(x).replace('.csv', '').replace('.CSV', '') 
     )
-    
     if selected_chapter:
         if st.button("确认进入该章节"):
             st.session_state.current_chapter = selected_chapter
@@ -230,9 +225,11 @@ if st.session_state.is_finished:
     if num_scored > 0:
         avg = sum(st.session_state.scores.values()) / num_scored
         st.metric("本章平均分", f"{avg:.1f}")
-        if avg >= 4.0: st.success(f"🌟 非常出色！你的平均分达到了 {avg:.1f}。")
-        elif avg >= 3.0: st.info(f"👍 表现不错。平均分 {avg:.1f}。")
-        else: st.warning(f"📖 平均分 {avg:.1f} 略低。")
+        
+        # 【恢复：详细鼓励性评价文案】
+        if avg >= 4.0: st.success(f"🌟 非常出色！你的平均分达到了 {avg:.1f}。你已经完全掌握了本章精髓，继续保持！")
+        elif avg >= 3.0: st.info(f"👍 表现不错。平均分 {avg:.1f}。大部分题目已经掌握，建议针对模糊点再巩固。")
+        else: st.warning(f"📖 平均分 {avg:.1f} 略低。建议回到课件重新复习基础知识。")
         
         user_record["history"][selected_file] = st.session_state.scores
         all_data[user_id] = user_record
@@ -317,7 +314,10 @@ if st.session_state.confirm_end:
     st.markdown("---")
     unanswered = [i + 1 for i in range(total_questions) if i not in st.session_state.scores]
     if unanswered:
+        # 【恢复：显示具体未评分的题号】
         st.warning(f"⚠️ **还有 {len(unanswered)} 道题目没有评分！**")
+        st.write(f"未完成题号：{', '.join(map(str, unanswered))}")
+    else: st.info("🎉 所有题目已评分完成。")
     ca, cb = st.columns(2)
     if ca.button("确认结束", use_container_width=True):
         st.session_state.is_finished = True; st.session_state.confirm_end = False; st.rerun()
