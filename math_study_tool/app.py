@@ -22,7 +22,8 @@ st.markdown("""
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
+    /* 修改点：不再隐藏整个header，只让背景透明，确保侧边栏展开按钮可见 */
+    header { background: transparent !important; } 
     footer {visibility: hidden;}
     .stDeployButton {display:none;}
     
@@ -50,7 +51,6 @@ def set_watermark_bg():
             background-repeat: no-repeat;
             background-attachment: fixed;
             background-position: center;
-            background-opacity: 0.1; /* 注意：CSS本身没有background-opacity，通常通过图片透明度控制 */
         }}
         /* 为内容区域增加一层半透明，确保文字清晰 */
         [data-testid="stVerticalBlock"] {{
@@ -82,7 +82,7 @@ def render_mixed_content(text):
     if not isinstance(text, str): return str(text)
     return text.replace('\\\\', '\\')
 
-# --- 3. 登录/注册/管理界面 (不显示水印) ---
+# --- 3. 登录/注册/管理界面 ---
 if 'user' not in st.session_state:
     st.title("🔐 积分国际教育数学竞赛自学系统")
     tab1, tab2, tab3 = st.tabs(["学生登录", "新同学注册", "教师端后台"])
@@ -156,7 +156,14 @@ csv_files = sorted([f for f in os.listdir(DATA_DIR) if f.lower().endswith('.csv'
 if 'current_chapter' not in st.session_state:
     st.title(f"👋 你好，{user_id}")
     st.subheader("第一步：请选择要练习的章节")
-    selected_chapter = st.selectbox("📚 可选章节", csv_files, index=None, placeholder="点击此处选择章节...")
+    # 修改点：添加 format_func 以在下拉列表中隐藏 .csv 后缀
+    selected_chapter = st.selectbox(
+        "📚 可选章节", 
+        csv_files, 
+        index=None, 
+        placeholder="点击此处选择章节...",
+        format_func=lambda x: os.path.splitext(x)[0]
+    )
     if selected_chapter:
         if st.button("确认进入该章节"):
             st.session_state.current_chapter = selected_chapter
@@ -165,14 +172,13 @@ if 'current_chapter' not in st.session_state:
         del st.session_state.user; st.rerun()
     st.stop()
 
-# --- 6. 进度恢复逻辑 (修改：去除文件名中的 .csv) ---
+# --- 6. 进度恢复逻辑 ---
 selected_file = st.session_state.current_chapter
-pure_chapter_name = os.path.splitext(selected_file)[0] # 获取去除后缀的文件名
+pure_chapter_name = os.path.splitext(selected_file)[0] 
 
 if 'scores' not in st.session_state:
     hist = user_record["history"].get(selected_file, {})
     if hist:
-        # 修改提示信息，不显示 .csv
         st.info(f"📍 检测到您之前在《{pure_chapter_name}》中有练习记录。")
         c1, c2 = st.columns(2)
         if c1.button("继续上次进度", use_container_width=True):
