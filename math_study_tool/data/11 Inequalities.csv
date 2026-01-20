@@ -15,12 +15,16 @@ Front,Back
 "绝对值不等式 $|a + b| = ||a| - |b||$ 成立的充要条件是？","$ab \le 0$（即 $a, b$ 异号或至少一个为零）"
 "对于 $n$ 个实数 $a_1, a_2, \dots, a_n$，不等式 $|\sum_{i=1}^n a_i| \le \sum_{i=1}^n |a_i|$ 等号成立的条件是？","所有 $a_i$ 符号相同（即 $a_i a_j \ge 0$）"
 "求 $y = |x - a_1| + |x - a_2| + \dots + |x - a_n|$ 的最小值，若 $n = 2m + 1$（奇数）且 $a_1 \le a_2 \le \dots \le a_n$，则 $x$ 取何值时 $y$ 最小？","$x = a_{m+1}$（中位数）"
-"求 $y = |x - a_1| + \dots + |x - a_n|$ 的最小值，若 $n = 2m$（偶数）且 $a_1 \le \dots \le a_n$，则 $x$ 的取值范围是？","$a_m \le x \le a_{m+1}$"
+"求 $y = |x - a_1| + \dots + |x - a_n|$ 的最小值，若 $n = 2m$（偶数）且 $a_1 \le \dots \le a_n$，则 $x$ 取何值时 $y$最小？","$a_m \le x \le a_{m+1}$"
 "高斯函数（下取整）定义：$\lfloor x \rfloor$ 满足的范围是？","$\lfloor x \rfloor \le x < \lfloor x \rfloor + 1$"
 "上取整函数 $\lceil x \rceil$ 满足的范围是？","$\lceil x \rceil - 1 < x \le \lceil x \rceil$"
 "分数部分函数 $\{x\}$ 的定义域及值域是？","定义为 $x - \lfloor x \rfloor$，值域为 $[0, 1)$"
-"下取整函数性质：$\lfloor x + y floor - (\lfloor x floor + \lfloor y floor)$ 的可能取值是？","0 或 1"
-"厄米特恒等式 (Hermite's Identity)：$\lfloor na floor$ 等于哪些项的和？","$\sum_{k=0}^{n-1} \lfloor a + \frac{k}{n} \rfloor$"
+"下取整函数性质：$\lfloor x + y 
+floor - (\lfloor x 
+floor + \lfloor y 
+floor)$ 的可能取值是？","0 或 1"
+"厄米特恒等式 (Hermite's Identity)：$\lfloor na 
+floor$ 等于哪些项的和？","$\sum_{k=0}^{n-1} \lfloor a + \frac{k}{n} \rfloor$"
 "几何中的三角形不等式：三角形三边 $a, b, c$ 必须满足什么关系？","$a + b \ge c$（等号仅在退化三角形时成立）"
 "平均值不等式中，$RMS$（平方平均数）的公式是？","$\sqrt{\frac{a_1^2 + a_2^2 + \dots + a_n^2}{n}}$"
 "平均值不等式中，$AM$（算术平均数）的公式是？","$\frac{a_1 + a_2 + \dots + a_n}{n}$"
@@ -49,7 +53,10 @@ Front,Back
 "若 $a+b+c+d=1$，则 $a^2+b^2+c^2+d^2$ 的最小值是？","$\frac{1}{4}$"
 "已知正实数 $x, y, z$ 满足 $xy^2z^3 = 108$，求 $x+y+z$ 的最小值应使用哪种不等式？","加权平均不等式（将 $y$ 拆为 $\frac{y}{2}+\frac{y}{2}$，$z$ 拆为 $\frac{z}{3}+\frac{z}{3}+\frac{z}{3}$）"
 "证明 $\sqrt{a^2+b^2} + \sqrt{x^2+y^2} \ge \sqrt{(a-x)^2+(b-y)^2}$ 的几何意义是？","三角形两边之和大于第三边（或 Minkowski 不等式的二维形式）。"
-"公式 $\lfloor x floor + \lfloor y floor \le \lfloor x+y floor$ 描述的是下取整函数的什么性质？","超加性 (Superadditivity)"
+"公式 $\lfloor x 
+floor + \lfloor y 
+floor \le \lfloor x+y 
+floor$ 描述的是下取整函数的什么性质？","超加性 (Superadditivity)"
 "在解决 $n$ 项绝对值之和 $|x-a_1| + \dots + |x-a_n|$ 最小化问题时，关键在于将 $x$ 放在什么的范围内？","数组 $\{a_i\}$ 的中位数位置。"
 "对于正实数 $a, b, c$，求 $\frac{a}{b+c} + \frac{b}{a+c} + \frac{c}{a+b}$ 的最小值（Nesbitt's Inequality）是多少？","$\frac{3}{2}$"
 "在 $n$ 维向量空间中，柯西不等式等价于两个向量的点积与模长乘积的什么关系？","$|\vec{a} \cdot \vec{b}| \le |\vec{a}| |\vec{b}|$"
