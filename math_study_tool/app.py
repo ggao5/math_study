@@ -103,6 +103,10 @@ def render_mixed_content(text):
     if not isinstance(text, str): return str(text)
     return text.replace('\\\\', '\\')
 
+# 提前定义路径，供教师端使用
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+
 # --- 3. 登录界面 ---
 if 'user' not in st.session_state:
     st.title("🔐 积分国际教育数学竞赛自学系统")
@@ -142,7 +146,7 @@ if 'user' not in st.session_state:
 if not st.session_state.get("is_admin"):
     set_watermark_bg()
 
-# --- 4. 教师端后台 ---
+# --- 4. 教师端后台 (重点修改部分) ---
 if st.session_state.get("is_admin"):
     st.title("👨‍🏫 教师后台：学生进度管理")
     all_data = load_all_user_data()
@@ -152,12 +156,47 @@ if st.session_state.get("is_admin"):
         for student, info in all_data.items():
             with st.expander(f"👤 学生：{student}"):
                 history = info.get("history", {})
-                if not history: st.write("该学生尚未开始任何练习。")
+                if not history: 
+                    st.write("该学生尚未开始任何练习。")
                 else:
-                    for chapter, scores in history.items():
+                    for chapter_file, scores in history.items():
                         num_q = len(scores)
-                        avg_s = sum(scores.values())/num_q if num_q > 0 else 0
-                        st.write(f"📖 **{chapter}**: 已做 {num_q} 题，平均分 {avg_s:.1f}")
+                        if num_q == 0: continue
+                        
+                        avg_s = sum(scores.values())/num_q
+                        chapter_display_name = chapter_file.replace('.csv', '').replace('.CSV', '')
+                        st.markdown(f"### 📖 {chapter_display_name}")
+                        st.write(f"**总进度**：已做 {num_q} 题 | **平均分**：{avg_s:.1f}")
+
+                        # 加载对应的 CSV 文件内容以显示题目文本
+                        csv_path = os.path.join(DATA_DIR, chapter_file)
+                        if os.path.exists(csv_path):
+                            df_chapter = pd.read_csv(csv_path, encoding='utf-8', keep_default_na=False)
+                            
+                            # 定义分数标签
+                            score_map = {
+                                5: "秒杀 (5分)",
+                                4: "熟练 (4分)",
+                                3: "懂了 (3分)",
+                                2: "模糊 (2分)",
+                                1: "不懂 (1分)"
+                            }
+                            
+                            # 按分数从高到低排列
+                            for s_val in [5, 4, 3, 2, 1]:
+                                # 在历史记录中找出对应分数的题号(注意JSON key可能是字符串)
+                                target_ids = [int(k) for k, v in scores.items() if int(v) == s_val]
+                                if target_ids:
+                                    with st.expander(f"📍 {score_map[s_val]} - 共 {len(target_ids)} 题"):
+                                        for q_idx in sorted(target_ids):
+                                            if q_idx < len(df_chapter):
+                                                st.write(f"**题号 {q_idx + 1}:**")
+                                                st.write(render_mixed_content(df_chapter.iloc[q_idx]['Front']))
+                                                st.divider()
+                        else:
+                            st.error(f"找不到对应的章节文件: {chapter_file}")
+                        st.divider()
+
     if st.sidebar.button("🚪 退出管理端"):
         del st.session_state.user; st.session_state.is_admin = False; st.rerun()
     st.stop()
@@ -167,8 +206,6 @@ user_id = st.session_state.user
 all_data = load_all_user_data()
 user_record = all_data[user_id]
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, "data")
 csv_files = sorted([f for f in os.listdir(DATA_DIR) if f.lower().endswith('.csv')])
 
 if 'current_chapter' not in st.session_state:
